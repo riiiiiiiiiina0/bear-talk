@@ -95,6 +95,7 @@ async function downloadContentsAsMarkdown(contents) {
       return;
     }
 
+    let downloadStartedNotified = false;
     for (let i = 0; i < validContents.length; i++) {
       const content = validContents[i];
 
@@ -127,11 +128,19 @@ async function downloadContentsAsMarkdown(contents) {
         'data:text/markdown;charset=utf-8,' +
         encodeURIComponent(markdownContent);
 
-      await chrome.downloads.download({
+      const downloadId = await chrome.downloads.download({
         url: dataUrl,
         filename: filename,
         saveAs: false,
       });
+      if (!downloadStartedNotified && typeof downloadId === 'number') {
+        downloadStartedNotified = true;
+        try {
+          chrome.runtime.sendMessage({ type: 'download-started', downloadId });
+        } catch (e) {
+          // ignore send errors
+        }
+      }
     }
 
     console.log(

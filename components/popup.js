@@ -371,24 +371,14 @@ function updateAIButtonIcon(providerId) {
   );
   if (!aiButtonIcon) return;
 
-  let providerUrl = '';
-
-  // Find the provider URL
-  if (LLM_PROVIDER_META[providerId]) {
-    providerUrl = LLM_PROVIDER_META[providerId].url;
-  } else {
-    // Handle additional providers not in LLM_PROVIDER_META
-    const additionalProviders = {
-      claude: 'https://claude.ai',
-      perplexity: 'https://perplexity.ai',
-    };
-    providerUrl = additionalProviders[providerId] || '';
-  }
+  const isChatGPT = providerId === 'chatgpt';
+  let providerUrl = LLM_PROVIDER_META[providerId].url || '';
 
   if (providerUrl) {
     // Use favicon service to get the provider icon
     aiButtonIcon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
     aiButtonIcon.alt = `${providerId} icon`;
+    aiButtonIcon.classList.toggle('dark:invert', isChatGPT);
   }
 }
 
@@ -442,6 +432,7 @@ async function createAIMenu() {
   }
 
   allProviders.forEach((provider) => {
+    const isChatGPT = provider.id === 'chatgpt';
     const menuItem = document.createElement('div');
     const isSelected = provider.id === defaultProvider;
     const isDisabled = disabledProviders.has(provider.id);
@@ -458,7 +449,7 @@ async function createAIMenu() {
     const icon = document.createElement('img');
     icon.src = `https://www.google.com/s2/favicons?domain=${provider.url}&sz=32`;
     icon.alt = provider.name;
-    icon.className = 'w-6 h-6 rounded';
+    icon.className = 'w-6 h-6 rounded' + (isChatGPT ? ' dark:invert' : '');
     icon.onerror = function () {
       this.style.display = 'none';
     };
@@ -852,11 +843,13 @@ async function sendPromptToLLM() {
     const promptsBtn = document.getElementById('prompts-btn');
     const tabsBtn = document.getElementById('tabs-btn');
     const sendBtn = document.getElementById('send-btn');
+    const downloadBtn = document.getElementById('download-btn');
     const filesBtn = document.getElementById('files-btn');
     const filesInput = /** @type {HTMLInputElement|null} */ (
       document.getElementById('files-input')
     );
     const filesCountSpan = document.getElementById('files-count');
+    const loadingOverlay = document.getElementById('loading-overlay');
     const overlay = document.getElementById('overlay');
     const textarea = /** @type {HTMLTextAreaElement|null} */ (
       document.getElementById('prompt-textarea')
@@ -868,6 +861,7 @@ async function sendPromptToLLM() {
       !tabsBtn ||
       !sendBtn ||
       !filesBtn ||
+      !downloadBtn ||
       !filesInput ||
       !overlay
     ) {
@@ -926,6 +920,33 @@ async function sendPromptToLLM() {
 
     // Send
     sendBtn.addEventListener('click', () => sendPromptToLLM());
+
+    // Download
+    downloadBtn.addEventListener('click', () => {
+      if (selectedTabIds.length === 0) return;
+      if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
+      }
+      // Listen once for download-started, then close popup
+      const onDownloadStarted = (message) => {
+        if (message && message.type === 'download-started') {
+          chrome.runtime.onMessage.removeListener(onDownloadStarted);
+          window.close();
+        }
+      };
+      chrome.runtime.onMessage.addListener(onDownloadStarted);
+      chrome.runtime.sendMessage({
+        type: 'download-markdown',
+        tabIds: selectedTabIds,
+      });
+      // Safety timeout: close after 3s even if no event (edge cases)
+      setTimeout(() => {
+        try {
+          chrome.runtime.onMessage.removeListener(onDownloadStarted);
+        } catch (e) {}
+        window.close();
+      }, 3000);
+    });
 
     // Overlay close
     overlay.addEventListener('click', hidePopups);

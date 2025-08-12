@@ -57,7 +57,9 @@ export function setLLMProvider(value) {
     if (!SUPPORTED_LLM_PROVIDERS.includes(value)) {
       reject(
         new Error(
-          `Invalid LLM value. Must be one of: ${SUPPORTED_LLM_PROVIDERS.join(', ')}.`,
+          `Invalid LLM value. Must be one of: ${SUPPORTED_LLM_PROVIDERS.join(
+            ', ',
+          )}.`,
         ),
       );
       return;
@@ -104,8 +106,13 @@ export async function addDisabledLLMProvider(provider) {
   const list = await getDisabledLLMProviders();
   if (!list.includes(provider)) {
     const updated = [...list, provider];
-    await new Promise((resolve) =>
-      chrome.storage.local.set({ [DISABLED_LLM_PROVIDERS_KEY]: updated }, () => resolve()),
+    await /** @type {Promise<void>} */ (
+      new Promise((resolve) =>
+        chrome.storage.local.set(
+          { [DISABLED_LLM_PROVIDERS_KEY]: updated },
+          () => resolve(),
+        ),
+      )
     );
   }
 }
@@ -119,8 +126,13 @@ export async function removeDisabledLLMProvider(provider) {
   const list = await getDisabledLLMProviders();
   if (list.includes(provider)) {
     const updated = list.filter((p) => p !== provider);
-    await new Promise((resolve) =>
-      chrome.storage.local.set({ [DISABLED_LLM_PROVIDERS_KEY]: updated }, () => resolve()),
+    await /** @type {Promise<void>} */ (
+      new Promise((resolve) =>
+        chrome.storage.local.set(
+          { [DISABLED_LLM_PROVIDERS_KEY]: updated },
+          () => resolve(),
+        ),
+      )
     );
   }
 }

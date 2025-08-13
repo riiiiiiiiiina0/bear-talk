@@ -66,6 +66,13 @@ let slashTriggerPos = null;
 let atTriggerPos = null;
 let prevSelectedTabIdsSnapshot = null;
 let allPrompts = [];
+// Track selected prompt index when navigating from search input
+let promptsSelectedIndex = 0;
+// Track selected tab index when navigating from tabs search input
+let tabsSelectedIndex = 0;
+
+// Prevent duplicate sends if Enter is pressed multiple times rapidly
+let isSending = false;
 
 /**
  * Get all saved prompts from Chrome sync storage
@@ -197,6 +204,49 @@ function focusFirstTabItem() {
 }
 
 /**
+ * Focus the tabs search input so user can start typing to filter
+ */
+function focusTabsSearchInput() {
+  const input = /** @type {HTMLInputElement|null} */ (
+    document.getElementById('tabs-search')
+  );
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+/**
+ * Apply visual highlight to the currently selected tab index
+ */
+function applyTabSelectionHighlight() {
+  const tabsList = document.querySelectorAll('#tabs-list [data-tab-id]');
+  tabsList.forEach((el, idx) => {
+    el.classList.toggle('bg-base-200', idx === tabsSelectedIndex);
+  });
+  const selectedEl = /** @type {HTMLElement|null} */ (
+    tabsList[tabsSelectedIndex]
+  );
+  if (selectedEl) {
+    selectedEl.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+/**
+ * Initialize tabs popup: clear search, render full, focus search, reset highlight
+ */
+function initTabsPopup() {
+  tabsSelectedIndex = 0;
+  const input = /** @type {HTMLInputElement|null} */ (
+    document.getElementById('tabs-search')
+  );
+  if (input) input.value = '';
+  renderTabs(allTabs);
+  focusTabsSearchInput();
+  applyTabSelectionHighlight();
+}
+
+/**
  * Focus the first prompt item and set up keyboard navigation (up/down/enter)
  */
 function focusFirstPromptItem() {
@@ -208,10 +258,78 @@ function focusFirstPromptItem() {
 }
 
 /**
+ * Focus the prompts search input so user can start typing to filter
+ */
+function focusPromptsSearchInput() {
+  const input = /** @type {HTMLInputElement|null} */ (
+    document.getElementById('prompts-search')
+  );
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+/**
+ * Apply visual highlight to the currently selected prompt index
+ */
+function applyPromptSelectionHighlight() {
+  const promptsList = document.querySelectorAll(
+    '#prompts-list [data-prompt-id]',
+  );
+  promptsList.forEach((el, idx) => {
+    el.classList.toggle('bg-base-200', idx === promptsSelectedIndex);
+  });
+  const selectedEl = /** @type {HTMLElement|null} */ (
+    promptsList[promptsSelectedIndex]
+  );
+  if (selectedEl) {
+    selectedEl.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+/**
+ * Initialize prompts popup: focus search and reset selection
+ */
+function initPromptsPopup() {
+  promptsSelectedIndex = 0;
+  const input = /** @type {HTMLInputElement|null} */ (
+    document.getElementById('prompts-search')
+  );
+  if (input) {
+    input.value = '';
+  }
+  // Re-render full list when opening
+  renderPrompts(allPrompts);
+  focusPromptsSearchInput();
+  applyPromptSelectionHighlight();
+}
+
+/**
  * Handle keyboard navigation inside prompts list (up/down/enter)
  */
 (function setupPromptKeyboardNavigation() {
   document.addEventListener('keydown', (e) => {
+    // Handle Escape to hide open menus without closing the popup
+    if (e.key === 'Escape') {
+      const promptsPopupEl = document.getElementById('prompts-popup');
+      const tabsPopupEl = document.getElementById('tabs-popup');
+      const isPromptsOpen =
+        promptsPopupEl && !promptsPopupEl.classList.contains('invisible');
+      const isTabsOpen =
+        tabsPopupEl && !tabsPopupEl.classList.contains('invisible');
+      if (isPromptsOpen || isTabsOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        hidePopups();
+        const textarea = /** @type {HTMLTextAreaElement|null} */ (
+          document.getElementById('prompt-textarea')
+        );
+        if (textarea && !activeTabInfo.isLLM) textarea.focus();
+        return;
+      }
+    }
+
     // Tabs popup navigation
     const tabsPopup = document.getElementById('tabs-popup');
     if (tabsPopup && !tabsPopup.classList.contains('invisible')) {
@@ -219,20 +337,49 @@ function focusFirstPromptItem() {
       if (tabItems.length) {
         const activeEl = document.activeElement;
         if (tabsPopup.contains(activeEl)) {
+          const tabsSearchInput = /** @type {HTMLElement|null} */ (
+            document.getElementById('tabs-search')
+          );
+          const isInTabsSearch = activeEl === tabsSearchInput;
+
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             let idx = Array.from(tabItems).indexOf(
               /** @type {Element} */ (activeEl),
             );
-            idx = (idx + 1) % tabItems.length;
+            idx = isInTabsSearch ? 0 : (idx + 1) % tabItems.length;
+            tabsSelectedIndex = idx;
             /** @type {HTMLElement} */ (tabItems[idx]).focus();
+            applyTabSelectionHighlight();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             let idx = Array.from(tabItems).indexOf(
               /** @type {Element} */ (activeEl),
             );
-            idx = (idx - 1 + tabItems.length) % tabItems.length;
+            idx = isInTabsSearch
+              ? tabItems.length - 1
+              : (idx - 1 + tabItems.length) % tabItems.length;
+            tabsSelectedIndex = idx;
             /** @type {HTMLElement} */ (tabItems[idx]).focus();
+            applyTabSelectionHighlight();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            // Toggle selection on focused item; if focus is in search, use current index
+            if (
+              activeEl &&
+              /** @type {HTMLElement} */ (activeEl).hasAttribute?.(
+                'data-tab-id',
+              )
+            ) {
+              /** @type {HTMLElement} */ (activeEl).click();
+            } else {
+              const idx = Math.min(
+                Math.max(tabsSelectedIndex, 0),
+                tabItems.length - 1,
+              );
+              const el = /** @type {HTMLElement} */ (tabItems[idx]);
+              if (el) el.click();
+            }
           } else if (e.key === ' ') {
             e.preventDefault();
             // toggle selection via click
@@ -251,25 +398,47 @@ function focusFirstPromptItem() {
     const activeEl = document.activeElement;
     if (!promptsPopup.contains(activeEl)) return;
 
+    const searchInput = /** @type {HTMLElement|null} */ (
+      document.getElementById('prompts-search')
+    );
+    const isInSearchInput = activeEl === searchInput;
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       let idx = Array.from(promptsList).indexOf(
         /** @type {Element} */ (activeEl),
       );
-      idx = (idx + 1) % promptsList.length;
+      idx = isInSearchInput ? 0 : (idx + 1) % promptsList.length;
+      promptsSelectedIndex = idx;
       /** @type {HTMLElement} */ (promptsList[idx]).focus();
+      applyPromptSelectionHighlight();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       let idx = Array.from(promptsList).indexOf(
         /** @type {Element} */ (activeEl),
       );
-      idx = (idx - 1 + promptsList.length) % promptsList.length;
+      idx = isInSearchInput
+        ? promptsList.length - 1
+        : (idx - 1 + promptsList.length) % promptsList.length;
+      promptsSelectedIndex = idx;
       /** @type {HTMLElement} */ (promptsList[idx]).focus();
+      applyPromptSelectionHighlight();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      // trigger click on focused item
-      if (activeEl) {
+      // Insert selected prompt: if focus is on a prompt item, click it;
+      // if focus is in search input, click currently selected index (default 0)
+      if (
+        activeEl &&
+        /** @type {HTMLElement} */ (activeEl).hasAttribute?.('data-prompt-id')
+      ) {
         /** @type {HTMLElement} */ (activeEl).click();
+      } else {
+        const idx = Math.min(
+          Math.max(promptsSelectedIndex, 0),
+          promptsList.length - 1,
+        );
+        const el = /** @type {HTMLElement} */ (promptsList[idx]);
+        if (el) el.click();
       }
     }
   });
@@ -507,7 +676,9 @@ async function createPromptsMenu() {
           prompt.name.toLowerCase().includes(searchTerm) ||
           prompt.content.toLowerCase().includes(searchTerm),
       );
+      promptsSelectedIndex = 0;
       renderPrompts(filteredPrompts);
+      applyPromptSelectionHighlight();
     });
   }
 }
@@ -582,6 +753,14 @@ function renderPrompts(prompts) {
 
     promptsList.appendChild(menuItem);
   });
+
+  // Re-apply selection highlight after rendering
+  if (prompts.length > 0) {
+    if (promptsSelectedIndex >= prompts.length) {
+      promptsSelectedIndex = 0;
+    }
+    applyPromptSelectionHighlight();
+  }
 }
 
 /**
@@ -631,7 +810,9 @@ async function createTabsMenu() {
           (tab.title && tab.title.toLowerCase().includes(searchTerm)) ||
           (tab.url && tab.url.toLowerCase().includes(searchTerm)),
       );
+      tabsSelectedIndex = 0;
       renderTabs(filteredTabs);
+      applyTabSelectionHighlight();
 
       // Update the selected tabs display (not affected by search filter)
       updateSelectedTabsDisplay();
@@ -746,12 +927,21 @@ function renderTabs(tabs) {
 
     tabsList.appendChild(menuItem);
   });
+
+  // Re-apply selection highlight after rendering for keyboard nav
+  const tabsItems = tabsList.querySelectorAll('[data-tab-id]');
+  if (tabsItems.length > 0) {
+    if (tabsSelectedIndex >= tabsItems.length) tabsSelectedIndex = 0;
+    applyTabSelectionHighlight();
+  }
 }
 
 /**
  * Send prompt to LLM
  */
 async function sendPromptToLLM() {
+  if (isSending) return;
+  isSending = true;
   const textarea = /** @type {HTMLTextAreaElement} */ (
     document.getElementById('prompt-textarea')
   );
@@ -779,21 +969,43 @@ async function sendPromptToLLM() {
     selectedTabIds.length === 0 &&
     serializedFiles.length === 0
   ) {
+    isSending = false;
     window.close();
     return;
   }
 
   // Ask the background service-worker to collect the context and process it
-  chrome.runtime.sendMessage({
-    type: 'collect-page-content',
-    tabIds: selectedTabIds,
-    llmProvider: selectedLLMProvider,
-    promptContent: promptText,
-    localFiles: serializedFiles,
-  });
-
-  // Close the popup
-  window.close();
+  try {
+    const llmProvider = selectedLLMProvider || (await getLLMProvider());
+    await /** @type {Promise<void>} */ (
+      new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage(
+            {
+              type: 'collect-page-content',
+              tabIds: selectedTabIds,
+              llmProvider,
+              promptContent: promptText,
+              localFiles: serializedFiles,
+            },
+            () => {
+              // Ensure any errors don't block closing
+              // Accessing lastError consumes it; ignore the value
+              // @ts-ignore
+              void chrome.runtime.lastError;
+              resolve();
+            },
+          );
+        } catch {
+          resolve();
+        }
+      })
+    );
+  } finally {
+    // Close the popup in a microtask to avoid races where the page is torn down
+    // before the message is dispatched.
+    setTimeout(() => window.close(), 0);
+  }
 }
 
 // Automatically set DaisyUI theme based on system preference
@@ -903,6 +1115,8 @@ async function sendPromptToLLM() {
           hidePopups();
         } else {
           showPopup('prompts-popup');
+          // When opened via button, focus the search field
+          setTimeout(() => initPromptsPopup(), 50);
         }
       });
     }
@@ -915,6 +1129,7 @@ async function sendPromptToLLM() {
         hidePopups();
       } else {
         showPopup('tabs-popup');
+        setTimeout(() => initTabsPopup(), 50);
       }
     });
 
@@ -1015,12 +1230,12 @@ async function sendPromptToLLM() {
         } else if (e.key === '/') {
           slashTriggerPos = textarea.selectionStart;
           showPopup('prompts-popup');
-          setTimeout(() => focusFirstPromptItem(), 50);
+          setTimeout(() => initPromptsPopup(), 50);
         } else if (e.key === '@') {
           atTriggerPos = textarea.selectionStart;
           prevSelectedTabIdsSnapshot = [...selectedTabIds];
           showPopup('tabs-popup');
-          setTimeout(() => focusFirstTabItem(), 50);
+          setTimeout(() => initTabsPopup(), 50);
         }
       });
     }

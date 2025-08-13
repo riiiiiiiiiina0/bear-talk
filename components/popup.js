@@ -307,6 +307,26 @@ function initPromptsPopup() {
  */
 (function setupPromptKeyboardNavigation() {
   document.addEventListener('keydown', (e) => {
+    // Handle Escape to hide open menus without closing the popup
+    if (e.key === 'Escape') {
+      const promptsPopupEl = document.getElementById('prompts-popup');
+      const tabsPopupEl = document.getElementById('tabs-popup');
+      const isPromptsOpen =
+        promptsPopupEl && !promptsPopupEl.classList.contains('invisible');
+      const isTabsOpen =
+        tabsPopupEl && !tabsPopupEl.classList.contains('invisible');
+      if (isPromptsOpen || isTabsOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        hidePopups();
+        const textarea = /** @type {HTMLTextAreaElement|null} */ (
+          document.getElementById('prompt-textarea')
+        );
+        if (textarea && !activeTabInfo.isLLM) textarea.focus();
+        return;
+      }
+    }
+
     // Tabs popup navigation
     const tabsPopup = document.getElementById('tabs-popup');
     if (tabsPopup && !tabsPopup.classList.contains('invisible')) {

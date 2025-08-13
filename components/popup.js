@@ -71,6 +71,9 @@ let promptsSelectedIndex = 0;
 // Track selected tab index when navigating from tabs search input
 let tabsSelectedIndex = 0;
 
+// Prevent duplicate sends if Enter is pressed multiple times rapidly
+let isSending = false;
+
 /**
  * Get all saved prompts from Chrome sync storage
  * @returns {Promise<Array>}
@@ -937,6 +940,8 @@ function renderTabs(tabs) {
  * Send prompt to LLM
  */
 async function sendPromptToLLM() {
+  if (isSending) return;
+  isSending = true;
   const textarea = /** @type {HTMLTextAreaElement} */ (
     document.getElementById('prompt-textarea')
   );
@@ -964,21 +969,43 @@ async function sendPromptToLLM() {
     selectedTabIds.length === 0 &&
     serializedFiles.length === 0
   ) {
+    isSending = false;
     window.close();
     return;
   }
 
   // Ask the background service-worker to collect the context and process it
-  chrome.runtime.sendMessage({
-    type: 'collect-page-content',
-    tabIds: selectedTabIds,
-    llmProvider: selectedLLMProvider,
-    promptContent: promptText,
-    localFiles: serializedFiles,
-  });
-
-  // Close the popup
-  window.close();
+  try {
+    const llmProvider = selectedLLMProvider || (await getLLMProvider());
+    await /** @type {Promise<void>} */ (
+      new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage(
+            {
+              type: 'collect-page-content',
+              tabIds: selectedTabIds,
+              llmProvider,
+              promptContent: promptText,
+              localFiles: serializedFiles,
+            },
+            () => {
+              // Ensure any errors don't block closing
+              // Accessing lastError consumes it; ignore the value
+              // @ts-ignore
+              void chrome.runtime.lastError;
+              resolve();
+            },
+          );
+        } catch {
+          resolve();
+        }
+      })
+    );
+  } finally {
+    // Close the popup in a microtask to avoid races where the page is torn down
+    // before the message is dispatched.
+    setTimeout(() => window.close(), 0);
+  }
 }
 
 // Automatically set DaisyUI theme based on system preference

@@ -17,6 +17,13 @@ const youtubeScripts = [
   ...sharedScripts,
 ];
 
+const redditScripts = [
+  'libs/turndown.7.2.0.js',
+  'libs/turndown-plugin-gfm.1.0.2.js',
+  'components/contentScripts/reddit/getContent.js',
+  ...sharedScripts,
+];
+
 const notionScripts = [
   'components/contentScripts/notion/getContent.js',
   ...sharedScripts,
@@ -88,13 +95,16 @@ export function injectScriptToGetPageContent(tabId) {
         if (videoId && !getCachedCaption(videoId)) {
           activateTabFirst = true;
         }
+      } else if (/^https?:\/\/(?:www\.)?reddit\.com\//.test(tabUrl)) {
+        scripts = redditScripts;
       } else if (/^https?:\/\/(?:www\.)?notion\.so/.test(tabUrl)) {
         scripts = notionScripts;
       } else {
         scripts = generalScripts;
       }
 
-      const doInject = () => injectContentScripts(tabId, scripts).then(() => resolve());
+      const doInject = () =>
+        injectContentScripts(tabId, scripts).then(() => resolve());
 
       if (activateTabFirst) {
         chrome.tabs.update(tabId, { active: true }, () => doInject());

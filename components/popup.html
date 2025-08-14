@@ -121,6 +121,24 @@
     <div class="flex-1 overflow-y-auto p-2" id="ai-list">
       <!-- AI providers will be populated by JavaScript -->
     </div>
+    <!-- Other options -->
+    <div class="px-4 py-2 border-t border-base-300">
+      <div class="flex flex-col gap-2">
+        <!-- Reply Language -->
+        <div class="flex items-center justify-between">
+          <label for="reply-language-select" class="font-medium text-sm">Reply Language</label>
+          <select id="reply-language-select" class="select select-sm">
+            <option value="en">English</option>
+            <option value="zh">Chinese</option>
+          </select>
+        </div>
+        <!-- Search Hints for ChatGPT -->
+        <div id="search-hints-container" class="flex items-center justify-between hidden">
+          <label for="search-hints-checkbox" class="font-medium text-sm">Include search hints</label>
+          <input type="checkbox" id="search-hints-checkbox" class="toggle toggle-sm" />
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Prompts Selection Popup - Shows saved prompts with search -->

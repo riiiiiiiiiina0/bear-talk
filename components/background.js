@@ -233,13 +233,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           : [];
         // Append language instruction if user has specified a reply language
         try {
-          const replyLang = await getReplyLanguage();
-          if (
-            replyLang &&
-            replyLang !== REPLY_LANG_DEFAULT &&
-            replyLang !== REPLY_LANG_CUSTOM
-          ) {
-            const langName = REPLY_LANGUAGE_META[replyLang]?.name || replyLang;
+          const replyLang = message.replyLanguage;
+          if (replyLang && replyLang !== 'en') {
+            const langName =
+              {
+                en: 'English',
+                zh: 'Chinese',
+              }[replyLang] || replyLang;
             const instruction = `Please reply in ${langName}.`;
             if (selectedPromptContent) {
               selectedPromptContent = `${selectedPromptContent}${
@@ -329,7 +329,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // When opening ChatGPT, append a hint parameter to the URL
           let targetUrl = meta.url;
           try {
-            if (llmProvider === LLM_PROVIDER_CHATGPT) {
+            if (llmProvider === LLM_PROVIDER_CHATGPT && message.searchHints) {
               const u = new URL(meta.url);
               u.searchParams.set('hints', 'search');
               targetUrl = u.toString();

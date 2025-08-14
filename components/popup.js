@@ -41,8 +41,10 @@ function getLLMProviderFromURL(url) {
 }
 
 // Track the currently selected LLM provider
-// Track the currently selected LLM provider
 let selectedLLMProvider = null;
+let selectedReplyLanguage = 'en';
+let selectedSearchHints = false;
+
 // Record info about the current active tab so that we can adapt the UI when the
 // popup is opened on an LLM page.
 /** @type {{ isLLM:boolean, providerId:string|null, tabId:number|null }} */
@@ -551,6 +553,13 @@ function updateAIButtonIcon(providerId) {
   }
 }
 
+function updateSearchHintsVisibility() {
+  const searchHintsContainer = document.getElementById('search-hints-container');
+  if (searchHintsContainer) {
+    searchHintsContainer.classList.toggle('hidden', selectedLLMProvider !== 'chatgpt');
+  }
+}
+
 /**
  * Create AI providers menu
  */
@@ -562,6 +571,7 @@ async function createAIMenu() {
   if (activeTabInfo.isLLM && activeTabInfo.providerId) {
     selectedLLMProvider = activeTabInfo.providerId;
     updateAIButtonIcon(activeTabInfo.providerId);
+    updateSearchHintsVisibility();
     aiList.innerHTML =
       '<div class="p-4 text-sm text-center text-base-content/60">Provider locked to current tab</div>';
     return;
@@ -583,6 +593,7 @@ async function createAIMenu() {
 
   // Update AI button icon to show the default provider
   updateAIButtonIcon(defaultProvider);
+  updateSearchHintsVisibility();
 
   // All providers are in supported providers list, no need to add additional providers
   const allProviders = SUPPORTED_LLM_PROVIDERS.map((provider) => ({
@@ -645,9 +656,11 @@ async function createAIMenu() {
 
         // Update selected provider
         selectedLLMProvider = provider.id;
+        chrome.storage.local.set({ selectedLLMProvider: provider.id });
 
-        // Update AI button icon to show the selected provider
+        // Update UI
         updateAIButtonIcon(provider.id);
+        updateSearchHintsVisibility();
 
         // Hide popup
         hidePopups();
@@ -987,6 +1000,8 @@ async function sendPromptToLLM() {
               llmProvider,
               promptContent: promptText,
               localFiles: serializedFiles,
+              replyLanguage: selectedReplyLanguage,
+              searchHints: selectedSearchHints,
             },
             () => {
               // Ensure any errors don't block closing
@@ -1031,12 +1046,36 @@ async function sendPromptToLLM() {
 // ================================================================
 (function init() {
   // Determine if the current active tab is an LLM page first.
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     if (tabs.length > 0) {
       const tab = tabs[0];
       activeTabInfo.tabId = tab.id || null;
       activeTabInfo.providerId = getLLMProviderFromURL(tab.url || '');
       activeTabInfo.isLLM = Boolean(activeTabInfo.providerId);
+    }
+
+    // Load saved settings
+    const result = await chrome.storage.local.get([
+      'selectedLLMProvider',
+      'selectedReplyLanguage',
+      'selectedSearchHints',
+    ]);
+    selectedLLMProvider = result.selectedLLMProvider || (await getLLMProvider());
+    selectedReplyLanguage = result.selectedReplyLanguage || 'en';
+    selectedSearchHints = result.selectedSearchHints || false;
+
+    const replyLanguageSelect = /** @type {HTMLSelectElement|null} */ (
+      document.getElementById('reply-language-select')
+    );
+    if (replyLanguageSelect) {
+      replyLanguageSelect.value = selectedReplyLanguage;
+    }
+
+    const searchHintsCheckbox = /** @type {HTMLInputElement|null} */ (
+      document.getElementById('search-hints-checkbox')
+    );
+    if (searchHintsCheckbox) {
+      searchHintsCheckbox.checked = selectedSearchHints;
     }
 
     // If we are on an LLM page lock the provider to the detected one.
@@ -1066,6 +1105,12 @@ async function sendPromptToLLM() {
     const textarea = /** @type {HTMLTextAreaElement|null} */ (
       document.getElementById('prompt-textarea')
     );
+    const replyLanguageSelect = /** @type {HTMLSelectElement|null} */ (
+      document.getElementById('reply-language-select')
+    );
+    const searchHintsCheckbox = /** @type {HTMLInputElement|null} */ (
+      document.getElementById('search-hints-checkbox')
+    );
 
     if (
       !aiBtn ||
@@ -1075,11 +1120,25 @@ async function sendPromptToLLM() {
       !filesBtn ||
       !downloadBtn ||
       !filesInput ||
-      !overlay
+      !overlay ||
+      !replyLanguageSelect ||
+      !searchHintsCheckbox
     ) {
       console.error('Popup elements not found');
       return;
     }
+
+    replyLanguageSelect.addEventListener('change', (e) => {
+      const target = /** @type {HTMLSelectElement} */ (e.target);
+      selectedReplyLanguage = target.value;
+      chrome.storage.local.set({ selectedReplyLanguage: target.value });
+    });
+
+    searchHintsCheckbox.addEventListener('change', (e) => {
+      const target = /** @type {HTMLInputElement} */ (e.target);
+      selectedSearchHints = target.checked;
+      chrome.storage.local.set({ selectedSearchHints: target.checked });
+    });
 
     // === Apply restrictions when on an LLM page ===
     if (activeTabInfo.isLLM) {

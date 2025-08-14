@@ -35,38 +35,8 @@
     <!-- Form Section -->
     <div class="space-y-6">
 
-      <!-- LLM Selection Group -->
-      <div class="form-control space-y-3">
-        <label class="label">
-          <span class="label-text text-base font-semibold text-gray-700 dark:text-gray-200">Default LLM Provider</span>
-        </label>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-5">
-          Choose which AI provider to use when processing web content. This will be the default destination when you
-          click the Bear Talk action button on any page.
-        </p>
-
-        <!-- LLM Options created dynamically -->
-        <div id="llm-options" class="grid grid-cols-4 gap-2"></div>
-      </div>
-
-      <!-- Reply Language Selection Group -->
-      <div class="form-control space-y-3">
-        <label class="label">
-          <span class="label-text text-base font-semibold text-gray-700 dark:text-gray-200">Reply Language</span>
-        </label>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-5">
-          Choose what language the LLM will reply to you in. This setting determines the language used for all
-          AI-generated responses.
-        </p>
-        <!-- Language options created dynamically -->
-        <div id="language-options" class="grid grid-cols-4 gap-2"></div>
-        <!-- Custom language input -->
-        <input type="text" id="custom-language-input" placeholder="Enter language"
-          class="input input-bordered w-full mt-2 hidden" />
-      </div>
-
       <!-- Saved Prompts Link -->
-      <div class="pt-4 flex flex-row items-center justify-end gap-2 border-t border-gray-200 dark:border-gray-700">
+      <div class="pt-4 flex flex-row items-center justify-end gap-2">
         <a href="options_prompts.html"
           class="btn btn-outline h-[58px] text-black border border-gray-200 dark:border-gray-700 rounded-lg dark:text-gray-400 font-semibold dark:hover:bg-gray-600">
           Manage Saved Prompts

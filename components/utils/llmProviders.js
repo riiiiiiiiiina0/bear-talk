@@ -1,10 +1,12 @@
 export const LLM_PROVIDER_CHATGPT = 'chatgpt';
+export const LLM_PROVIDER_CHATGPT_SEARCH = 'chatgpt_search';
 export const LLM_PROVIDER_GEMINI = 'gemini';
 export const LLM_PROVIDER_PERPLEXITY = 'perplexity';
 export const LLM_PROVIDER_CLAUDE = 'claude';
 export const LLM_PROVIDER_DEFAULT = LLM_PROVIDER_CHATGPT;
 export const SUPPORTED_LLM_PROVIDERS = [
   LLM_PROVIDER_CHATGPT,
+  LLM_PROVIDER_CHATGPT_SEARCH,
   LLM_PROVIDER_GEMINI,
   LLM_PROVIDER_PERPLEXITY,
   LLM_PROVIDER_CLAUDE,
@@ -14,6 +16,10 @@ export const LLM_PROVIDER_META = {
   [LLM_PROVIDER_CHATGPT]: {
     name: 'ChatGPT',
     url: 'https://chatgpt.com',
+  },
+  [LLM_PROVIDER_CHATGPT_SEARCH]: {
+    name: 'ChatGPT with Search',
+    url: 'https://chatgpt.com?hints=search',
   },
   [LLM_PROVIDER_GEMINI]: {
     name: 'Gemini',

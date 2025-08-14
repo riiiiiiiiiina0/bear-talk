@@ -6,6 +6,7 @@ import {
   SUPPORTED_LLM_PROVIDERS,
   getDisabledLLMProviders,
 } from './utils/llmProviders.js';
+import { setLLMProvider } from './utils/llmProviders.js';
 
 // Storage key for saved prompts (same as in options_prompts.js)
 const PROMPTS_STORAGE_KEY = 'savedPrompts';
@@ -538,9 +539,12 @@ function updateAIButtonIcon(providerId) {
   const aiButtonIcon = /** @type {HTMLImageElement|null} */ (
     document.getElementById('ai-btn-icon')
   );
+  const aiButtonBadge = /** @type {HTMLSpanElement|null} */ (
+    document.getElementById('ai-btn-badge')
+  );
   if (!aiButtonIcon) return;
 
-  const isChatGPT = providerId === 'chatgpt';
+  const isChatGPT = providerId === 'chatgpt' || providerId === 'chatgpt_search';
   let providerUrl = LLM_PROVIDER_META[providerId].url || '';
 
   if (providerUrl) {
@@ -548,6 +552,15 @@ function updateAIButtonIcon(providerId) {
     aiButtonIcon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
     aiButtonIcon.alt = `${providerId} icon`;
     aiButtonIcon.classList.toggle('dark:invert', isChatGPT);
+  }
+
+  // Toggle small badge for ChatGPT with Search
+  if (aiButtonBadge) {
+    if (providerId === 'chatgpt_search') {
+      aiButtonBadge.classList.remove('hidden');
+    } else {
+      aiButtonBadge.classList.add('hidden');
+    }
   }
 }
 
@@ -601,7 +614,8 @@ async function createAIMenu() {
   }
 
   allProviders.forEach((provider) => {
-    const isChatGPT = provider.id === 'chatgpt';
+    const isChatGPT =
+      provider.id === 'chatgpt' || provider.id === 'chatgpt_search';
     const menuItem = document.createElement('div');
     const isSelected = provider.id === defaultProvider;
     const isDisabled = disabledProviders.has(provider.id);
@@ -645,6 +659,11 @@ async function createAIMenu() {
 
         // Update selected provider
         selectedLLMProvider = provider.id;
+
+        // Persist user selection
+        try {
+          setLLMProvider(provider.id).catch(() => {});
+        } catch {}
 
         // Update AI button icon to show the selected provider
         updateAIButtonIcon(provider.id);
@@ -713,11 +732,12 @@ function renderPrompts(prompts) {
     );
     const query = searchInput ? searchInput.value.trim() : '';
     const snippet = prompt.content.substring(0, 100);
+    const nameHtml = highlightQuery(prompt.name, query);
+    const badgeHtml = prompt.requireSearch
+      ? '<span class="badge badge-xs badge-primary align-middle">Search</span>'
+      : '';
     content.innerHTML = `
-        <div class="font-medium leading-tight">${highlightQuery(
-          prompt.name,
-          query,
-        )}</div>
+        <div class="font-medium leading-tigh flex flex-row items-center gap-1">${nameHtml}${badgeHtml}</div>
         <div class="text-xs text-base-content/60 leading-tight mt-0.5">${highlightQuery(
           snippet,
           query,
@@ -745,6 +765,15 @@ function renderPrompts(prompts) {
           textarea.value += prompt.content;
         }
         textarea.focus();
+      }
+
+      // If this prompt requires search, ensure we select a search-enabled LLM variant
+      if (prompt.requireSearch) {
+        if (selectedLLMProvider === 'chatgpt') {
+          selectedLLMProvider = 'chatgpt_search';
+          // Temporary override for this session only (do not persist)
+          updateAIButtonIcon('chatgpt_search');
+        }
       }
 
       // Hide popup

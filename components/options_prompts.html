@@ -9,6 +9,7 @@
   <link as="style"
     href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B600%3B700&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
     onload="this.rel='stylesheet'" rel="stylesheet" />
+  <link href="../libs/daisyui@5.css" rel="stylesheet" type="text/css" />
   <script src="../libs/tailwindcss@4.js"></script>
   <!-- Favicon -->
   <link id="favicon" rel="icon" type="image/png" href="../icons/icon-32x32.png" />
@@ -183,6 +184,10 @@
                 id="prompt-content" name="prompt-content" placeholder="Enter the prompt content here..." rows="10"
                 maxlength="2000"></textarea>
             </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="prompt-require-search" type="checkbox" class="checkbox checkbox-sm" />
+            <label for="prompt-require-search" class="text-sm text-gray-700 dark:text-gray-300">Require search</label>
           </div>
         </form>
       </div>

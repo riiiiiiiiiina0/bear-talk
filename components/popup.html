@@ -14,7 +14,7 @@
 <!-- ===== MAIN BODY ===== -->
 <!-- Fixed size popup window (400x600px) with flexbox layout -->
 
-<body class="font-sans w-[520px] h-[600px] m-0 p-0 flex flex-col">
+<body class="font-sans w-[480px] h-[600px] m-0 p-0 flex flex-col">
 
   <!-- ===== MAIN CONTENT AREA ===== -->
   <!-- Takes up most of the space, contains the prompt textarea -->
@@ -36,13 +36,13 @@
 
       <!-- AI Button - Opens AI provider selection popup, shows selected provider icon -->
       <button
-        class="flex flex-row items-center gap-1 bg-transparent border-none cursor-pointer p-2 rounded-lg transition-colors duration-200 hover:bg-base-200"
+        class="relative flex flex-row items-center gap-1 bg-transparent border-none cursor-pointer p-2 rounded-lg transition-colors duration-200 hover:bg-base-200"
         id="ai-btn">
         <!-- Dynamic provider icon (updated by JavaScript) -->
         <img id="ai-btn-icon" class="w-6 h-6 rounded"
           src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E"
           alt="AI Provider">
-        <span class="text-xs font-medium">AI</span>
+        <span id="ai-btn-badge" class="hidden absolute -bottom-1 -right-3 badge badge-xs badge-primary">Search</span>
       </button>
 
       <!-- Prompts Button - Opens saved prompts selection popup -->
@@ -51,10 +51,8 @@
         id="prompts-btn">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 20.247 6-16.5" />
         </svg>
-        <span class="text-xs font-medium">/ Prompts</span>
       </button>
 
       <!-- Tabs Button - Opens browser tabs selection popup -->
@@ -64,9 +62,8 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="size-6">
           <path stroke-linecap="round" stroke-linejoin="round"
-            d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" />
         </svg>
-        <span class="text-xs font-medium">@ Tabs</span>
       </button>
 
       <!-- Files Button - Open local file selector -->
@@ -75,9 +72,9 @@
         id="files-btn">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
         </svg>
-        <span class="text-xs font-medium">Files</span>
         <span id="files-count" class="ml-1 text-xs font-semibold text-primary"></span>
       </button>
 

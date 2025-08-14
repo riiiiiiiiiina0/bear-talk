@@ -4,6 +4,7 @@ import { showLoadingBadge, clearLoadingBadge } from './common/actionButton.js';
 import {
   LLM_PROVIDER_META,
   LLM_PROVIDER_CHATGPT,
+  LLM_PROVIDER_CHATGPT_SEARCH,
   getLLMProvider,
   setLLMProvider,
   getDisabledLLMProviders,
@@ -326,21 +327,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return;
           }
 
-          // When opening ChatGPT, append a hint parameter to the URL
-          let targetUrl = meta.url;
-          try {
-            if (llmProvider === LLM_PROVIDER_CHATGPT) {
-              const u = new URL(meta.url);
-              u.searchParams.set('hints', 'search');
-              targetUrl = u.toString();
-            }
-          } catch (e) {
-            // Fallback to meta.url if URL manipulation fails
-            targetUrl = meta.url;
-          }
-
           const newTab = await chrome.tabs.create({
-            url: targetUrl,
+            url: meta.url,
             active: true,
           });
           if (newTab.id) {

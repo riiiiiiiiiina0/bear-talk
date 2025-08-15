@@ -605,7 +605,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       )}${pad(now.getDate())}-${pad(now.getHours())}${pad(
         now.getMinutes(),
       )}.json`;
-      const jsonStr = JSON.stringify(prompts, null, 2);
+      // Ensure all prompts have the requireSearch field for export
+      const promptsToExport = prompts.map((p) => ({
+        ...p,
+        requireSearch: Boolean(p.requireSearch),
+      }));
+      const jsonStr = JSON.stringify(promptsToExport, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -652,6 +657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             id: p.id || generateId(),
             name: p.name.trim(),
             content: p.content.trim(),
+            requireSearch: Boolean(p.requireSearch),
             createdAt: p.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }));

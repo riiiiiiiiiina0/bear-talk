@@ -1,7 +1,28 @@
+import {
+  LLM_PROVIDER_META,
+  getLLMProviderFromURL,
+} from '../../utils/llmProviders.js';
+
 // This script injects selected tab contents as Markdown file attachments into ChatGPT.
 // It now waits for ChatGPT's prompt editor to exist before attempting to paste.
 
 (async () => {
+  /**
+   * Auto trigger send message once all the context files are pasted and prompt content is not empty.
+   */
+  async function autoTriggerSend() {
+    const provider = getLLMProviderFromURL(window.location.href);
+    if (!provider) return;
+
+    const selector = LLM_PROVIDER_META[provider]?.sendButtonSelector;
+    if (!selector) return;
+
+    const sendButton = await waitForElement(selector, 10000);
+    if (sendButton) {
+      sendButton.click();
+    }
+  }
+
   /**
    * Waits for a DOM element matching the selector to appear, or resolves null after timeout.
    * @param {string} selector
@@ -275,6 +296,10 @@
 
         editor.dispatchEvent(pasteEvent);
       });
+
+      if (promptContent) {
+        autoTriggerSend();
+      }
 
       // Notify background that all markdown files have been pasted
       chrome.runtime.sendMessage({ type: 'markdown-paste-complete' });

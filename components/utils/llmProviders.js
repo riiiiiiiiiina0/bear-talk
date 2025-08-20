@@ -16,22 +16,27 @@ export const LLM_PROVIDER_META = {
   [LLM_PROVIDER_CHATGPT]: {
     name: 'ChatGPT',
     url: 'https://chatgpt.com',
+    sendButtonSelector: 'button#composer-submit-button:not([disabled])',
   },
   [LLM_PROVIDER_CHATGPT_SEARCH]: {
     name: 'ChatGPT with Search',
     url: 'https://chatgpt.com?hints=search',
+    sendButtonSelector: 'button#composer-submit-button:not([disabled])',
   },
   [LLM_PROVIDER_GEMINI]: {
     name: 'Gemini',
     url: 'https://gemini.google.com',
+    sendButtonSelector: 'button.send-button:not([aria-disabled="true”])',
   },
   [LLM_PROVIDER_PERPLEXITY]: {
     name: 'Perplexity',
     url: 'https://www.perplexity.ai',
+    sendButtonSelector: 'button[data-testid="submit-button"]:not([disabled])',
   },
   [LLM_PROVIDER_CLAUDE]: {
     name: 'Claude',
     url: 'https://claude.ai',
+    sendButtonSelector: 'button[aria-label="Send message"]:not([disabled])',
   },
 };
 
@@ -151,4 +156,18 @@ export async function removeDisabledLLMProvider(provider) {
 export async function isLLMProviderDisabled(provider) {
   const list = await getDisabledLLMProviders();
   return list.includes(provider);
+}
+
+/**
+ * Get the LLM provider from the given URL.
+ * @param {string} url
+ * @returns {string|null}
+ */
+export function getLLMProviderFromURL(url) {
+  for (const [provider, meta] of Object.entries(LLM_PROVIDER_META)) {
+    if (url.startsWith(meta.url)) {
+      return provider;
+    }
+  }
+  return null;
 }

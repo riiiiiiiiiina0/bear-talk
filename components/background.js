@@ -28,6 +28,11 @@ let selectedPromptContent = null;
 // Store local files selected from popup (serialized as {name,type,dataUrl})
 let selectedLocalFiles = [];
 
+// Add a global variable to track the currently selected LLM provider so we can
+// pass provider-specific meta data (e.g. the send-button selector) to content
+// scripts later.
+let selectedLLMProviderId = null;
+
 // Flag to indicate we are in the middle of collecting page contents / waiting for paste to complete
 let isProcessing = false;
 
@@ -261,6 +266,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const currentTab = tabs[0];
         const selectedLLMProvider =
           message.llmProvider || (await getLLMProvider());
+        selectedLLMProviderId = selectedLLMProvider;
 
         // If only the current active tab is selected and it's not an LLM page,
         // capture a screenshot of the visible area and include it as an attachment
@@ -352,11 +358,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tabs: collectedContents,
         promptContent: selectedPromptContent,
         files: selectedLocalFiles,
+        sendButtonSelector:
+          LLM_PROVIDER_META[selectedLLMProviderId]?.sendButtonSelector || null,
       });
     } else if (message.type === 'markdown-paste-complete') {
       clearLoadingBadge();
       isProcessing = false;
       llmTabId = null;
+      selectedLLMProviderId = null;
     } else if (
       message.type === 'download-markdown' &&
       Array.isArray(message.tabIds)

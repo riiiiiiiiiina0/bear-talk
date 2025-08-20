@@ -1,8 +1,3 @@
-import {
-  LLM_PROVIDER_META,
-  getLLMProviderFromURL,
-} from '../../utils/llmProviders.js';
-
 // This script injects selected tab contents as Markdown file attachments into ChatGPT.
 // It now waits for ChatGPT's prompt editor to exist before attempting to paste.
 
@@ -10,14 +5,10 @@ import {
   /**
    * Auto trigger send message once all the context files are pasted and prompt content is not empty.
    */
-  async function autoTriggerSend() {
-    const provider = getLLMProviderFromURL(window.location.href);
-    if (!provider) return;
-
-    const selector = LLM_PROVIDER_META[provider]?.sendButtonSelector;
+  async function autoTriggerSend(selector) {
     if (!selector) return;
 
-    const sendButton = await waitForElement(selector, 10000);
+    const sendButton = await waitForElement(selector, 10_000);
     if (sendButton) {
       sendButton.click();
     }
@@ -212,6 +203,7 @@ import {
       const tabs = Array.isArray(response?.tabs) ? response.tabs : [];
       const promptContent = (response?.promptContent || '').trim();
       const localFiles = Array.isArray(response?.files) ? response.files : [];
+      const sendButtonSelector = response?.sendButtonSelector || null;
 
       if (tabs.length === 0) {
         console.warn(
@@ -227,12 +219,6 @@ import {
           '[parseFilesAsAttachments] Timed out waiting for prompt textarea.',
         );
         return;
-      }
-
-      // Inject prompt content if provided
-      if (promptContent) {
-        const normalizedPrompt = promptContent.replace(/[\r\n]+/g, ' ');
-        injectPromptContent(editor, normalizedPrompt);
       }
 
       // Attach local files selected from popup
@@ -257,6 +243,7 @@ import {
         }
       }
 
+      // Attach tab contents as markdown files
       tabs.forEach((tab, idx) => {
         const { title, url, content } = tab;
 
@@ -297,8 +284,19 @@ import {
         editor.dispatchEvent(pasteEvent);
       });
 
+      // wait a bit to make sure the files are pasted
+      if (localFiles.length > 0 || tabs.length > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // Inject prompt content if provided
       if (promptContent) {
-        autoTriggerSend();
+        const normalizedPrompt = promptContent.replace(/[\r\n]+/g, ' ');
+        injectPromptContent(editor, normalizedPrompt);
+
+        if (sendButtonSelector) {
+          await autoTriggerSend(sendButtonSelector);
+        }
       }
 
       // Notify background that all markdown files have been pasted

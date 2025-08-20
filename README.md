@@ -23,6 +23,7 @@ A one‑trick, very helpful bear: use selected browser tabs as context for your 
 3. Open the tabs you want as context → click the bear → pick tabs →
    - Copy the generated context and paste it into your AI chat, or
    - Use the provided button to open your AI chat with context ready (when available)
+4. Pro-tip: use `Cmd+Period` (Mac) or `Ctrl+Period` (others) to open Bear Talk.
 
 ### Permissions
 

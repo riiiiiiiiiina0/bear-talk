@@ -26,6 +26,14 @@
     "default_title": "Bear Talk",
     "default_popup": "components/popup.html"
   },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Period",
+        "mac": "Command+Period"
+      }
+    }
+  },
   "options_page": "components/options.html",
   "background": {
     "service_worker": "components/background.js",

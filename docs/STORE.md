@@ -18,6 +18,7 @@
     1. Open the tabs you want to use as context
     2. Click the Bear Talk icon → pick your tabs
     3. Copy the generated context into your AI chat, or launch the chat with context pre-filled (when available)
+    4. Pro-tip: use `Cmd+Period` (Mac) or `Ctrl+Period` (others) to open Bear Talk.
 
   - **Works with your existing AI chatbox**
 

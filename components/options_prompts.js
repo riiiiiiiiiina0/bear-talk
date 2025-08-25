@@ -652,6 +652,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             id: p.id || generateId(),
             name: p.name.trim(),
             content: p.content.trim(),
+            requireSearch: Boolean(p.requireSearch),
             createdAt: p.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }));

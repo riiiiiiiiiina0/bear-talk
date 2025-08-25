@@ -231,12 +231,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       showLoadingBadge();
 
       collectPageContentOneByOne(message.tabIds).then(async (contents) => {
-        collectedContents = contents;
-        // Store the prompt content for later injection
-        selectedPromptContent = message.promptContent || null;
+        const processedContents = [];
         selectedLocalFiles = Array.isArray(message.localFiles)
           ? message.localFiles
           : [];
+
+        for (const content of contents) {
+          if (!content) continue;
+
+          if (content.content && content.content.startsWith('IMAGE:')) {
+            const imageUrl = content.content.substring(6);
+            try {
+              const response = await fetch(imageUrl);
+              const blob = await response.blob();
+              const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+              const markdown = `![${content.title || 'image'}](${dataUrl})`;
+              processedContents.push({ ...content, content: markdown });
+            } catch (e) {
+              console.error('Failed to fetch image, falling back to link', e);
+              processedContents.push({
+                ...content,
+                content: `Image: ${imageUrl}`,
+              });
+            }
+          } else if (content.content && content.content.startsWith('PDF:')) {
+            const pdfUrl = content.content.substring(4);
+            try {
+              const response = await fetch(pdfUrl);
+              const blob = await response.blob();
+              const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+              selectedLocalFiles.push({
+                name: (content.title || 'document') + '.pdf',
+                type: 'application/pdf',
+                dataUrl,
+              });
+              // Add a placeholder in the text content
+              processedContents.push({
+                ...content,
+                content: `PDF document attached: ${content.title || pdfUrl}`,
+              });
+            } catch (e) {
+              console.error('Failed to fetch PDF, falling back to link', e);
+              processedContents.push({ ...content, content: `PDF: ${pdfUrl}` });
+            }
+          } else {
+            processedContents.push(content);
+          }
+        }
+
+        collectedContents = processedContents;
+
+        // Store the prompt content for later injection
+        selectedPromptContent = message.promptContent || null;
         // Append language instruction if user has specified a reply language
         try {
           const replyLang = await getReplyLanguage();

@@ -4,6 +4,35 @@
    * @returns {Promise<string|null>}
    */
   async function getGeneralPageContent() {
+    const url = document.location.href.toLowerCase();
+
+    // Handle image pages
+    if (url.endsWith('.jpeg') || url.endsWith('.jpg') || url.endsWith('.png')) {
+      if (
+        document.body &&
+        document.body.children.length === 1 &&
+        document.body.children[0].tagName === 'IMG'
+      ) {
+        const img = /** @type {HTMLImageElement} */ (
+          document.body.children[0]
+        );
+        return `IMAGE:${img.src}`;
+      }
+      return `IMAGE:${document.location.href}`;
+    }
+
+    // Handle PDF pages
+    if (
+      url.endsWith('.pdf') ||
+      (document.body &&
+        document.body.children.length === 1 &&
+        document.body.children[0].tagName === 'EMBED' &&
+        /** @type {HTMLEmbedElement} */ (document.body.children[0]).type ===
+          'application/pdf')
+    ) {
+      return `PDF:${document.location.href}`;
+    }
+
     // Clone the document so we can mutate it freely
     const clone = /** @type {Document} */ (document.cloneNode(true));
 

@@ -661,6 +661,18 @@ async function createAIMenu() {
       // Add click handler
       menuItem.addEventListener('click', () => {
         if (selectedLLMProviders.includes(provider.id)) {
+          if (selectedLLMProviders.length === 1) {
+            // Prevent deselecting the last provider
+            menuItem.animate([
+              { transform: 'scale(1)' },
+              { transform: 'scale(1.05)' },
+              { transform: 'scale(1)' }
+            ], {
+              duration: 200,
+              easing: 'ease-in-out'
+            });
+            return;
+          }
           selectedLLMProviders = selectedLLMProviders.filter(p => p !== provider.id);
         } else {
           selectedLLMProviders.push(provider.id);

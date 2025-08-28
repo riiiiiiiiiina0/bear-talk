@@ -2,11 +2,11 @@
 
 import {
   LLM_PROVIDER_META,
-  getLLMProvider,
+  getSelectedLLMProviders,
   SUPPORTED_LLM_PROVIDERS,
   getDisabledLLMProviders,
+  setSelectedLLMProviders,
 } from './utils/llmProviders.js';
-import { setLLMProvider } from './utils/llmProviders.js';
 
 // Storage key for saved prompts (same as in options_prompts.js)
 const PROMPTS_STORAGE_KEY = 'savedPrompts';
@@ -42,8 +42,8 @@ function getLLMProviderFromURL(url) {
 }
 
 // Track the currently selected LLM provider
-// Track the currently selected LLM provider
-let selectedLLMProvider = null;
+// Track the currently selected LLM providers
+let selectedLLMProviders = [];
 // Record info about the current active tab so that we can adapt the UI when the
 // popup is opened on an LLM page.
 /** @type {{ isLLM:boolean, providerId:string|null, tabId:number|null }} */
@@ -532,35 +532,54 @@ function updateSelectedTabsDisplay() {
 }
 
 /**
- * Update the AI button icon to show the selected provider
- * @param {string} providerId - The ID of the selected provider
+ * Update the AI button icon to show the selected provider(s)
+ * @param {string[]} providerIds - The IDs of the selected providers
  */
-function updateAIButtonIcon(providerId) {
-  const aiButtonIcon = /** @type {HTMLImageElement|null} */ (
-    document.getElementById('ai-btn-icon')
-  );
+function updateAIButtonIcon(providerIds) {
+  const iconContainer = document.getElementById('ai-btn-icon-container');
   const aiButtonBadge = /** @type {HTMLSpanElement|null} */ (
     document.getElementById('ai-btn-badge')
   );
-  if (!aiButtonIcon) return;
+  if (!iconContainer) return;
 
-  const isChatGPT = providerId === 'chatgpt' || providerId === 'chatgpt_search';
-  let providerUrl = LLM_PROVIDER_META[providerId].url || '';
+  iconContainer.innerHTML = ''; // Clear previous icons
 
-  if (providerUrl) {
-    // Use favicon service to get the provider icon
-    aiButtonIcon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
-    aiButtonIcon.alt = `${providerId} icon`;
-    aiButtonIcon.classList.toggle('dark:invert', isChatGPT);
+  if (providerIds.length === 0) {
+    const defaultIcon = document.createElement('img');
+    defaultIcon.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E`;
+    defaultIcon.alt = 'No AI Provider selected';
+    defaultIcon.className = 'w-6 h-6 rounded';
+    iconContainer.appendChild(defaultIcon);
+    if (aiButtonBadge) aiButtonBadge.classList.add('hidden');
+    return;
   }
 
-  // Toggle small badge for ChatGPT with Search
-  if (aiButtonBadge) {
-    if (providerId === 'chatgpt_search') {
-      aiButtonBadge.classList.remove('hidden');
-    } else {
-      aiButtonBadge.classList.add('hidden');
+  if (providerIds.length === 1) {
+    const providerId = providerIds[0];
+    const isChatGPT = providerId === 'chatgpt' || providerId === 'chatgpt_search';
+    const providerUrl = LLM_PROVIDER_META[providerId].url || '';
+
+    const icon = document.createElement('img');
+    icon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
+    icon.alt = `${providerId} icon`;
+    icon.className = 'w-6 h-6 rounded';
+    icon.classList.toggle('dark:invert', isChatGPT);
+    iconContainer.appendChild(icon);
+
+    if (aiButtonBadge) {
+      aiButtonBadge.classList.toggle('hidden', providerId !== 'chatgpt_search');
     }
+  } else {
+    iconContainer.classList.add('-space-x-3');
+    providerIds.forEach(providerId => {
+      const providerUrl = LLM_PROVIDER_META[providerId].url || '';
+      const icon = document.createElement('img');
+      icon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
+      icon.alt = `${providerId} icon`;
+      icon.className = 'w-6 h-6 rounded border-2 border-base-100 dark:border-base-300 bg-base-100';
+      iconContainer.appendChild(icon);
+    });
+    if (aiButtonBadge) aiButtonBadge.classList.add('hidden');
   }
 }
 
@@ -573,8 +592,8 @@ async function createAIMenu() {
 
   // If we are already on an LLM page, lock the provider and hide the menu
   if (activeTabInfo.isLLM && activeTabInfo.providerId) {
-    selectedLLMProvider = activeTabInfo.providerId;
-    updateAIButtonIcon(activeTabInfo.providerId);
+    selectedLLMProviders = [activeTabInfo.providerId];
+    updateAIButtonIcon(selectedLLMProviders);
     aiList.innerHTML =
       '<div class="p-4 text-sm text-center text-base-content/60">Provider locked to current tab</div>';
     return;
@@ -584,18 +603,19 @@ async function createAIMenu() {
   const disabledProviders = new Set(await getDisabledLLMProviders());
 
   // Get the default LLM provider
-  let defaultProvider = await getLLMProvider();
-  if (disabledProviders.has(defaultProvider)) {
-    // Fall back to first enabled provider
+  let defaultProviders = await getSelectedLLMProviders();
+  defaultProviders = defaultProviders.filter(p => !disabledProviders.has(p));
+
+  if (defaultProviders.length === 0) {
     const firstEnabled = SUPPORTED_LLM_PROVIDERS.find(
       (p) => !disabledProviders.has(p),
     );
-    if (firstEnabled) defaultProvider = firstEnabled;
+    if (firstEnabled) defaultProviders = [firstEnabled];
   }
-  selectedLLMProvider = defaultProvider;
+  selectedLLMProviders = defaultProviders;
 
   // Update AI button icon to show the default provider
-  updateAIButtonIcon(defaultProvider);
+  updateAIButtonIcon(selectedLLMProviders);
 
   // All providers are in supported providers list, no need to add additional providers
   const allProviders = SUPPORTED_LLM_PROVIDERS.map((provider) => ({
@@ -617,7 +637,7 @@ async function createAIMenu() {
     const isChatGPT =
       provider.id === 'chatgpt' || provider.id === 'chatgpt_search';
     const menuItem = document.createElement('div');
-    const isSelected = provider.id === defaultProvider;
+    const isSelected = selectedLLMProviders.includes(provider.id);
     const isDisabled = disabledProviders.has(provider.id);
     menuItem.className = `flex items-center gap-3 p-3 rounded-lg ${
       isDisabled
@@ -647,29 +667,37 @@ async function createAIMenu() {
     if (!isDisabled) {
       // Add click handler
       menuItem.addEventListener('click', () => {
-        // Remove selection from all items and update hover classes
-        aiList.querySelectorAll('[data-provider]').forEach((item) => {
-          item.classList.remove('bg-primary/10', 'hover:bg-primary/20');
-          item.classList.add('hover:bg-base-200');
-        });
+        if (selectedLLMProviders.includes(provider.id)) {
+          if (selectedLLMProviders.length === 1) {
+            // Prevent deselecting the last provider
+            menuItem.animate([
+              { transform: 'scale(1)' },
+              { transform: 'scale(1.05)' },
+              { transform: 'scale(1)' }
+            ], {
+              duration: 200,
+              easing: 'ease-in-out'
+            });
+            return;
+          }
+          selectedLLMProviders = selectedLLMProviders.filter(p => p !== provider.id);
+        } else {
+          selectedLLMProviders.push(provider.id);
+        }
 
-        // Add selection to clicked item and update hover class
-        menuItem.classList.remove('hover:bg-base-200');
-        menuItem.classList.add('bg-primary/10', 'hover:bg-primary/20');
-
-        // Update selected provider
-        selectedLLMProvider = provider.id;
+        // Update UI
+        const isNowSelected = selectedLLMProviders.includes(provider.id);
+        menuItem.classList.toggle('bg-primary/10', isNowSelected);
+        menuItem.classList.toggle('hover:bg-primary/20', isNowSelected);
+        menuItem.classList.toggle('hover:bg-base-200', !isNowSelected);
 
         // Persist user selection
         try {
-          setLLMProvider(provider.id).catch(() => {});
+          setSelectedLLMProviders(selectedLLMProviders).catch(() => {});
         } catch {}
 
         // Update AI button icon to show the selected provider
-        updateAIButtonIcon(provider.id);
-
-        // Hide popup
-        hidePopups();
+        updateAIButtonIcon(selectedLLMProviders);
       });
     }
 
@@ -769,10 +797,13 @@ function renderPrompts(prompts) {
 
       // If this prompt requires search, ensure we select a search-enabled LLM variant
       if (prompt.requireSearch) {
-        if (selectedLLMProvider === 'chatgpt') {
-          selectedLLMProvider = 'chatgpt_search';
+        if (selectedLLMProviders.includes('chatgpt')) {
+          selectedLLMProviders = selectedLLMProviders.filter(p => p !== 'chatgpt');
+          if (!selectedLLMProviders.includes('chatgpt_search')) {
+            selectedLLMProviders.push('chatgpt_search');
+          }
           // Temporary override for this session only (do not persist)
-          updateAIButtonIcon('chatgpt_search');
+          updateAIButtonIcon(selectedLLMProviders);
         }
       }
 
@@ -1005,7 +1036,7 @@ async function sendPromptToLLM() {
 
   // Ask the background service-worker to collect the context and process it
   try {
-    const llmProvider = selectedLLMProvider || (await getLLMProvider());
+    const llmProviders = selectedLLMProviders.length > 0 ? selectedLLMProviders : (await getSelectedLLMProviders());
     await /** @type {Promise<void>} */ (
       new Promise((resolve) => {
         try {
@@ -1013,7 +1044,7 @@ async function sendPromptToLLM() {
             {
               type: 'collect-page-content',
               tabIds: selectedTabIds,
-              llmProvider,
+              llmProviders,
               promptContent: promptText,
               localFiles: serializedFiles,
             },
@@ -1070,8 +1101,8 @@ async function sendPromptToLLM() {
 
     // If we are on an LLM page lock the provider to the detected one.
     if (activeTabInfo.isLLM && activeTabInfo.providerId) {
-      selectedLLMProvider = activeTabInfo.providerId;
-      updateAIButtonIcon(activeTabInfo.providerId);
+      selectedLLMProviders = [activeTabInfo.providerId];
+      updateAIButtonIcon(selectedLLMProviders);
     }
 
     // Build menus with the context we now have.

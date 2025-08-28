@@ -699,6 +699,7 @@ async function createAIMenu() {
           }
         } else if (e.ctrlKey || e.metaKey) {
           // CTRL+CLICK for toggling multiple selection
+          e.preventDefault();
           if (selectedLLMProviders.includes(clickedProviderId)) {
             // Already selected, try to deselect
             if (selectedLLMProviders.length > 1) {

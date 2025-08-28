@@ -639,7 +639,7 @@ async function createAIMenu() {
     const menuItem = document.createElement('div');
     const isSelected = selectedLLMProviders.includes(provider.id);
     const isDisabled = disabledProviders.has(provider.id);
-    menuItem.className = `flex items-center gap-3 p-3 rounded-lg mb-1 ${
+    menuItem.className = `flex items-center gap-3 p-3 rounded-lg mb-1 select-none ${
       isDisabled
         ? 'opacity-40 cursor-not-allowed'
         : 'cursor-pointer transition-colors duration-200 ' +

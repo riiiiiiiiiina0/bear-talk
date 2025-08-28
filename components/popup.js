@@ -633,7 +633,10 @@ async function createAIMenu() {
     aiList.appendChild(notice);
   }
 
-  allProviders.forEach((provider) => {
+  // Add a variable to track the last clicked item for shift-click range selection
+  let lastClickedProviderIndex = -1;
+
+  allProviders.forEach((provider, providerIndex) => {
     const isChatGPT =
       provider.id === 'chatgpt' || provider.id === 'chatgpt_search';
     const menuItem = document.createElement('div');
@@ -670,32 +673,67 @@ async function createAIMenu() {
         const clickedProviderId = provider.id;
 
         if (e.shiftKey) {
-          // SHIFT+CLICK for multi-selection
+          // SHIFT+CLICK for range selection
+          if (lastClickedProviderIndex !== -1) {
+            const currentIndex = providerIndex;
+            const start = Math.min(lastClickedProviderIndex, currentIndex);
+            const end = Math.max(lastClickedProviderIndex, currentIndex);
+
+            // Get IDs of all providers in the range
+            const rangeProviderIds = allProviders
+              .slice(start, end + 1)
+              .map((p) => p.id)
+              .filter((id) => !disabledProviders.has(id));
+
+            // Add the range to the current selection.
+            // Using a Set handles duplicates automatically.
+            const newSelection = new Set([
+              ...selectedLLMProviders,
+              ...rangeProviderIds,
+            ]);
+            selectedLLMProviders = Array.from(newSelection);
+          } else {
+            // No anchor for shift-click, treat as a normal click.
+            selectedLLMProviders = [clickedProviderId];
+            lastClickedProviderIndex = providerIndex;
+          }
+        } else if (e.ctrlKey || e.metaKey) {
+          // CTRL+CLICK for toggling multiple selection
+          e.preventDefault();
           if (selectedLLMProviders.includes(clickedProviderId)) {
             // Already selected, try to deselect
             if (selectedLLMProviders.length > 1) {
-              selectedLLMProviders = selectedLLMProviders.filter(p => p !== clickedProviderId);
+              selectedLLMProviders = selectedLLMProviders.filter(
+                (p) => p !== clickedProviderId,
+              );
             } else {
-              // Prevent deselecting the last one
-              menuItem.animate([
-                { transform: 'scale(1)' },
-                { transform: 'scale(1.05)' },
-                { transform: 'scale(1)' }
-              ], { duration: 200, easing: 'ease-in-out' });
+              // Prevent deselecting the last one, just animate
+              menuItem.animate(
+                [
+                  { transform: 'scale(1)' },
+                  { transform: 'scale(1.05)' },
+                  { transform: 'scale(1)' },
+                ],
+                { duration: 200, easing: 'ease-in-out' },
+              );
               return; // Do nothing
             }
           } else {
             // Not selected, add it to the list
             selectedLLMProviders.push(clickedProviderId);
           }
+          // Update the anchor to the last item clicked
+          lastClickedProviderIndex = providerIndex;
         } else {
           // NORMAL CLICK for single selection
           selectedLLMProviders = [clickedProviderId];
+          // Set the anchor for future shift-clicks
+          lastClickedProviderIndex = providerIndex;
         }
 
         // Update UI for all menu items
         const allItems = aiList.querySelectorAll('[data-provider]');
-        allItems.forEach(item => {
+        allItems.forEach((item) => {
           const providerId = item.dataset.provider;
           const isSelected = selectedLLMProviders.includes(providerId);
           item.classList.toggle('bg-primary/10', isSelected);

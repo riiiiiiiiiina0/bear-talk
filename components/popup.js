@@ -576,7 +576,7 @@ function updateAIButtonIcon(providerIds) {
       const icon = document.createElement('img');
       icon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
       icon.alt = `${providerId} icon`;
-      icon.className = 'w-6 h-6 rounded border-2 border-base-100 dark:border-base-300';
+      icon.className = 'w-6 h-6 rounded border-2 border-base-100 dark:border-base-300 bg-base-100';
       iconContainer.appendChild(icon);
     });
     if (aiButtonBadge) aiButtonBadge.classList.add('hidden');

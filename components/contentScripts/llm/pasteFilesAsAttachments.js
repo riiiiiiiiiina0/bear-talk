@@ -196,111 +196,62 @@
     }
   }
 
-  // Request selected tab data from the background service worker
-  chrome.runtime.sendMessage(
-    { type: 'get-selected-tabs-data' },
-    async (response) => {
-      const tabs = Array.isArray(response?.tabs) ? response.tabs : [];
-      const promptContent = (response?.promptContent || '').trim();
-      const localFiles = Array.isArray(response?.files) ? response.files : [];
-      const sendButtonSelector = response?.sendButtonSelector || null;
+  chrome.runtime.onMessage.addListener(async (message) => {
+    if (message.type === 'inject-data') {
+        const { tabs, promptContent, files, sendButtonSelector } = message;
 
-      if (tabs.length === 0) {
-        console.warn(
-          '[parseFilesAsAttachments] No selected tab data received.',
-        );
-        return;
-      }
-
-      // Wait for the ChatGPT prompt editor to be ready
-      const editor = await waitForElement('[contenteditable="true"]');
-      if (!editor) {
-        console.warn(
-          '[parseFilesAsAttachments] Timed out waiting for prompt textarea.',
-        );
-        return;
-      }
-
-      // Attach local files selected from popup
-      for (const f of localFiles) {
-        try {
-          const blob = await (await fetch(f.dataUrl)).blob();
-          const file = new File([blob], f.name, { type: f.type || blob.type });
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          const pasteEvt = new ClipboardEvent('paste', {
-            clipboardData: dt,
-            bubbles: true,
-            cancelable: true,
-          });
-          editor.dispatchEvent(pasteEvt);
-        } catch (err) {
-          console.error(
-            '[parseFilesAsAttachments] Failed to attach local file',
-            f,
-            err,
-          );
-        }
-      }
-
-      // Attach tab contents as markdown files
-      tabs.forEach((tab, idx) => {
-        const { title, url, content } = tab;
-
-        if (!content) {
-          console.warn(
-            `[parseFilesAsAttachments] No content found for tab ${idx + 1}.`,
-            tab,
-          );
-          return;
+        if (tabs.length === 0 && files.length === 0) {
+            console.warn('[pasteFilesAsAttachments] No data to paste.');
+            return;
         }
 
-        const fileContent = [
-          `Please treat this as the content of a web page titled "${
-            title || `Tab ${idx + 1}`
-          }" (URL: ${url}). If a <selectedText> section is present, please pay special attention to it and consider it higher priority than the rest of the content.`,
-          `---`,
-          content || '<no content>',
-        ].join('\n\n');
+        const editor = await waitForElement('[contenteditable="true"]');
+        if (!editor) {
+            console.warn('[pasteFilesAsAttachments] Timed out waiting for prompt editor.');
+            return;
+        }
 
-        const fileName = `${(title || `tab-${idx + 1}`).replace(
-          /[^a-z0-9\-_]+/gi,
-          '_',
-        )}.md`;
-        const file = new File([fileContent], fileName, {
-          type: 'text/markdown',
-          lastModified: Date.now(),
+        // Attach local files
+        for (const f of files) {
+            try {
+                const blob = await (await fetch(f.dataUrl)).blob();
+                const file = new File([blob], f.name, { type: f.type || blob.type });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                editor.dispatchEvent(pasteEvt);
+            } catch (err) {
+                console.error('[pasteFilesAsAttachments] Failed to attach local file', f, err);
+            }
+        }
+
+        // Attach tab contents
+        tabs.forEach((tab, idx) => {
+            const { title, url, content } = tab;
+            if (!content) return;
+
+            const fileContent = `Please treat this as the content of a web page titled "${title || `Tab ${idx + 1}`}" (URL: ${url}). If a <selectedText> section is present, please pay special attention to it and consider it higher priority than the rest of the content.\n\n---\n\n${content || '<no content>'}`;
+            const fileName = `${(title || `tab-${idx + 1}`).replace(/[^a-z0-9\-_]+/gi, '_')}.md`;
+            const file = new File([fileContent], fileName, { type: 'text/markdown', lastModified: Date.now() });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            const pasteEvent = new ClipboardEvent('paste', { clipboardData: dataTransfer, bubbles: true, cancelable: true });
+            editor.dispatchEvent(pasteEvent);
         });
 
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-
-        const pasteEvent = new ClipboardEvent('paste', {
-          clipboardData: dataTransfer,
-          bubbles: true,
-          cancelable: true,
-        });
-
-        editor.dispatchEvent(pasteEvent);
-      });
-
-      // wait a bit to make sure the files are pasted
-      if (localFiles.length > 0 || tabs.length > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-
-      // Inject prompt content if provided
-      if (promptContent) {
-        const normalizedPrompt = promptContent.replace(/[\r\n]+/g, ' ');
-        injectPromptContent(editor, normalizedPrompt);
-
-        if (sendButtonSelector) {
-          await autoTriggerSend(sendButtonSelector);
+        if (files.length > 0 || tabs.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
-      }
 
-      // Notify background that all markdown files have been pasted
-      chrome.runtime.sendMessage({ type: 'markdown-paste-complete' });
-    },
-  );
+        if (promptContent) {
+            const normalizedPrompt = promptContent.replace(/[\r\n]+/g, ' ');
+            injectPromptContent(editor, normalizedPrompt);
+            if (sendButtonSelector) {
+                await autoTriggerSend(sendButtonSelector);
+            }
+        }
+
+        chrome.runtime.sendMessage({ type: 'markdown-paste-complete' });
+    }
+  });
 })();

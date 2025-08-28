@@ -3,10 +3,8 @@ import './common/managerYouTube.js';
 import { showLoadingBadge, clearLoadingBadge } from './common/actionButton.js';
 import {
   LLM_PROVIDER_META,
-  LLM_PROVIDER_CHATGPT,
-  LLM_PROVIDER_CHATGPT_SEARCH,
-  getLLMProvider,
-  setLLMProvider,
+  getSelectedLLMProviders,
+  setSelectedLLMProviders,
   getDisabledLLMProviders,
   addDisabledLLMProvider,
 } from './utils/llmProviders.js';
@@ -20,6 +18,7 @@ import {
   collectPageContent,
   injectScriptToPasteFilesAsAttachments,
 } from './common/pageContent.js';
+import { waitForTabReady } from './utils/tab.js';
 
 let collectedContents = [];
 
@@ -31,14 +30,14 @@ let selectedLocalFiles = [];
 // Add a global variable to track the currently selected LLM provider so we can
 // pass provider-specific meta data (e.g. the send-button selector) to content
 // scripts later.
-let selectedLLMProviderId = null;
+let selectedLLMProviderIds = [];
 
 // Flag to indicate we are in the middle of collecting page contents / waiting for paste to complete
 let isProcessing = false;
 
 // Track the LLM provider tab that we inject the paste script into so that we
 // can clear the loading badge if the tab is closed before the paste completes.
-let llmTabId = null;
+let llmTabIds = [];
 
 /**
  * Check if a URL matches any supported LLM provider
@@ -184,14 +183,19 @@ async function disableProviderAndNotify(providerId) {
     }
 
     // If the currently selected provider is the disabled one, switch to a fallback.
-    const current = await getLLMProvider();
-    if (current === providerId) {
+    const current = await getSelectedLLMProviders();
+    if (current.includes(providerId)) {
       const disabled = new Set(await getDisabledLLMProviders());
-      const candidates = Object.keys(LLM_PROVIDER_META).filter(
-        (p) => !disabled.has(p),
-      );
-      if (candidates.length > 0) {
-        await setLLMProvider(candidates[0]);
+      const newSelection = current.filter(p => p !== providerId);
+      if (newSelection.length > 0) {
+        await setSelectedLLMProviders(newSelection);
+      } else {
+        const candidates = Object.keys(LLM_PROVIDER_META).filter(
+          (p) => !disabled.has(p),
+        );
+        if (candidates.length > 0) {
+          await setSelectedLLMProviders([candidates[0]]);
+        }
       }
     }
   } catch (err) {
@@ -264,9 +268,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Get current tab to check if it's an LLM page
         const currentTab = tabs[0];
-        const selectedLLMProvider =
-          message.llmProvider || (await getLLMProvider());
-        selectedLLMProviderId = selectedLLMProvider;
+        const selectedLLMProviders =
+          message.llmProviders || (await getSelectedLLMProviders());
+        selectedLLMProviderIds = selectedLLMProviders;
 
         // If only the current active tab is selected and it's not an LLM page,
         // capture a screenshot of the visible area and include it as an attachment
@@ -296,76 +300,77 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           );
         }
 
-        // Check if current tab matches the selected LLM provider
-        const currentTabMatchesSelectedLLM =
-          currentTab.url &&
-          isLLMPage(currentTab.url) &&
-          Object.values(LLM_PROVIDER_META).some(
-            (meta) =>
-              currentTab.url &&
-              currentTab.url.startsWith(meta.url) &&
-              LLM_PROVIDER_META[selectedLLMProvider]?.url === meta.url,
-          );
-
-        if (currentTabMatchesSelectedLLM) {
-          // Current tab is the correct LLM page - inject script here as usual
-          chrome.tabs.update(tabId, { active: true }, async () => {
-            const ok = await injectScriptToPasteFilesAsAttachments(tabId);
-            if (!ok) {
-              await clearLoadingBadge();
-              isProcessing = false;
-              await disableProviderAndNotify(selectedLLMProvider);
-            } else {
-              llmTabId = tabId; // record the tab so we know which one to watch
+        const providersToOpen = [...selectedLLMProviders];
+        // Check if current tab can be reused
+        if (currentTab.url && isLLMPage(currentTab.url)) {
+            for (const providerId of selectedLLMProviders) {
+                if (currentTab.url.startsWith(LLM_PROVIDER_META[providerId].url)) {
+                    // Found a match, reuse this tab
+                    const index = providersToOpen.indexOf(providerId);
+                    if (index > -1) {
+                        providersToOpen.splice(index, 1);
+                    }
+                    // Inject into the current tab
+                    const ok = await injectScriptToPasteFilesAsAttachments(currentTab.id);
+                    if (ok) {
+                        llmTabIds.push(currentTab.id);
+                        await waitForTabReady(currentTab.id);
+                        chrome.tabs.sendMessage(currentTab.id, {
+                            type: 'inject-data',
+                            tabs: collectedContents,
+                            promptContent: selectedPromptContent,
+                            files: selectedLocalFiles,
+                            sendButtonSelector: LLM_PROVIDER_META[providerId]?.sendButtonSelector || null,
+                        });
+                    } else {
+                        await disableProviderAndNotify(providerId);
+                    }
+                    break;
+                }
             }
-          });
-        } else {
-          // Current tab is NOT the correct LLM page - open new LLM tab and inject there
-          const llmProvider = selectedLLMProvider;
-          const meta = LLM_PROVIDER_META[llmProvider];
-          if (!meta) {
-            console.error(
-              '[background] llm provider not supported:',
-              llmProvider,
-            );
+        }
+
+        for (const providerId of providersToOpen) {
+            const meta = LLM_PROVIDER_META[providerId];
+            if (!meta) {
+                console.error('[background] llm provider not supported:', providerId);
+                continue;
+            }
+
+            const newTab = await chrome.tabs.create({
+                url: meta.url,
+                active: true,
+            });
+
+            if (newTab.id) {
+                const ok = await injectScriptToPasteFilesAsAttachments(newTab.id);
+                if (ok) {
+                    llmTabIds.push(newTab.id);
+                    await waitForTabReady(newTab.id);
+                    chrome.tabs.sendMessage(newTab.id, {
+                        type: 'inject-data',
+                        tabs: collectedContents,
+                        promptContent: selectedPromptContent,
+                        files: selectedLocalFiles,
+                        sendButtonSelector: LLM_PROVIDER_META[providerId]?.sendButtonSelector || null,
+                    });
+                } else {
+                    await disableProviderAndNotify(providerId);
+                }
+            }
+        }
+        if (llmTabIds.length === 0) {
             await clearLoadingBadge();
             isProcessing = false;
-            return;
-          }
-
-          const newTab = await chrome.tabs.create({
-            url: meta.url,
-            active: true,
-          });
-          if (newTab.id) {
-            const ok = await injectScriptToPasteFilesAsAttachments(newTab.id);
-            console.log(
-              '[background] injectScriptToPasteFilesAsAttachments',
-              ok,
-            );
-            if (!ok) {
-              await clearLoadingBadge();
-              isProcessing = false;
-              await disableProviderAndNotify(llmProvider);
-            } else {
-              llmTabId = newTab.id; // record the new LLM tab
-            }
-          }
         }
       });
-    } else if (message.type === 'get-selected-tabs-data') {
-      sendResponse({
-        tabs: collectedContents,
-        promptContent: selectedPromptContent,
-        files: selectedLocalFiles,
-        sendButtonSelector:
-          LLM_PROVIDER_META[selectedLLMProviderId]?.sendButtonSelector || null,
-      });
     } else if (message.type === 'markdown-paste-complete') {
-      clearLoadingBadge();
-      isProcessing = false;
-      llmTabId = null;
-      selectedLLMProviderId = null;
+      llmTabIds = llmTabIds.filter(id => id !== sender.tab?.id);
+      if (llmTabIds.length === 0) {
+        clearLoadingBadge();
+        isProcessing = false;
+        selectedLLMProviderIds = [];
+      }
     } else if (
       message.type === 'download-markdown' &&
       Array.isArray(message.tabIds)
@@ -386,9 +391,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // If the LLM tab is closed before we receive the "markdown-paste-complete"
 // message, make sure we clear the loading badge so it doesn't remain stuck.
 chrome.tabs.onRemoved.addListener((removedTabId) => {
-  if (removedTabId === llmTabId && isProcessing) {
-    clearLoadingBadge();
-    isProcessing = false;
-    llmTabId = null;
+  if (llmTabIds.includes(removedTabId) && isProcessing) {
+    llmTabIds = llmTabIds.filter(id => id !== removedTabId);
+    if (llmTabIds.length === 0) {
+      clearLoadingBadge();
+      isProcessing = false;
+    }
   }
 });

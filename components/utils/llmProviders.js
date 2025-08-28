@@ -44,31 +44,36 @@ export const LLM_PROVIDER_META = {
 const DISABLED_LLM_PROVIDERS_KEY = 'disabledLLMProviders';
 
 /**
- * @returns {Promise<string>} Resolves to the selected LLM provider.
+ * @returns {Promise<string[]>} Resolves to the selected LLM providers.
  */
-export function getLLMProvider() {
+export function getSelectedLLMProviders() {
   return new Promise((resolve) => {
     if (!chrome || !chrome.storage || !chrome.storage.sync) {
-      resolve(LLM_PROVIDER_CHATGPT);
+      resolve([LLM_PROVIDER_CHATGPT]);
       return;
     }
-    chrome.storage.sync.get(['selectedLLM'], (result) => {
-      const value = result.selectedLLM || LLM_PROVIDER_DEFAULT;
-      resolve(value);
+    chrome.storage.sync.get(['selectedLLMProviders', 'selectedLLM'], (result) => {
+      if (result.selectedLLMProviders) {
+        resolve(result.selectedLLMProviders);
+      } else if (result.selectedLLM) {
+        resolve([result.selectedLLM]);
+      } else {
+        resolve([LLM_PROVIDER_DEFAULT]);
+      }
     });
   });
 }
 
 /**
- * @param {string} value - The LLM value to set ('chatgpt', 'gemini', 'perplexity', or 'claude').
+ * @param {string[]} values - The LLM values to set.
  * @returns {Promise<void>} Resolves when the value is set.
  */
-export function setLLMProvider(value) {
+export function setSelectedLLMProviders(values) {
   return new Promise((resolve, reject) => {
-    if (!SUPPORTED_LLM_PROVIDERS.includes(value)) {
+    if (!Array.isArray(values) || values.some(v => !SUPPORTED_LLM_PROVIDERS.includes(v))) {
       reject(
         new Error(
-          `Invalid LLM value. Must be one of: ${SUPPORTED_LLM_PROVIDERS.join(
+          `Invalid LLM values. Must be an array of: ${SUPPORTED_LLM_PROVIDERS.join(
             ', ',
           )}.`,
         ),
@@ -79,7 +84,7 @@ export function setLLMProvider(value) {
       reject(new Error('Chrome storage API not available.'));
       return;
     }
-    chrome.storage.sync.set({ selectedLLM: value }, () => {
+    chrome.storage.sync.set({ selectedLLMProviders: values }, () => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {

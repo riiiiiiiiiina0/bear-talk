@@ -639,7 +639,7 @@ async function createAIMenu() {
     const menuItem = document.createElement('div');
     const isSelected = selectedLLMProviders.includes(provider.id);
     const isDisabled = disabledProviders.has(provider.id);
-    menuItem.className = `flex items-center gap-3 p-3 rounded-lg ${
+    menuItem.className = `flex items-center gap-3 p-3 rounded-lg mb-1 ${
       isDisabled
         ? 'opacity-40 cursor-not-allowed'
         : 'cursor-pointer transition-colors duration-200 ' +
@@ -665,38 +665,50 @@ async function createAIMenu() {
     menuItem.appendChild(content);
 
     if (!isDisabled) {
-      // Add click handler
-      menuItem.addEventListener('click', () => {
-        if (selectedLLMProviders.includes(provider.id)) {
-          if (selectedLLMProviders.length === 1) {
-            // Prevent deselecting the last provider
-            menuItem.animate([
-              { transform: 'scale(1)' },
-              { transform: 'scale(1.05)' },
-              { transform: 'scale(1)' }
-            ], {
-              duration: 200,
-              easing: 'ease-in-out'
-            });
-            return;
+      // Add click handler for selection
+      menuItem.addEventListener('click', (e) => {
+        const clickedProviderId = provider.id;
+
+        if (e.shiftKey) {
+          // SHIFT+CLICK for multi-selection
+          if (selectedLLMProviders.includes(clickedProviderId)) {
+            // Already selected, try to deselect
+            if (selectedLLMProviders.length > 1) {
+              selectedLLMProviders = selectedLLMProviders.filter(p => p !== clickedProviderId);
+            } else {
+              // Prevent deselecting the last one
+              menuItem.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.05)' },
+                { transform: 'scale(1)' }
+              ], { duration: 200, easing: 'ease-in-out' });
+              return; // Do nothing
+            }
+          } else {
+            // Not selected, add it to the list
+            selectedLLMProviders.push(clickedProviderId);
           }
-          selectedLLMProviders = selectedLLMProviders.filter(p => p !== provider.id);
         } else {
-          selectedLLMProviders.push(provider.id);
+          // NORMAL CLICK for single selection
+          selectedLLMProviders = [clickedProviderId];
         }
 
-        // Update UI
-        const isNowSelected = selectedLLMProviders.includes(provider.id);
-        menuItem.classList.toggle('bg-primary/10', isNowSelected);
-        menuItem.classList.toggle('hover:bg-primary/20', isNowSelected);
-        menuItem.classList.toggle('hover:bg-base-200', !isNowSelected);
+        // Update UI for all menu items
+        const allItems = aiList.querySelectorAll('[data-provider]');
+        allItems.forEach(item => {
+          const providerId = item.dataset.provider;
+          const isSelected = selectedLLMProviders.includes(providerId);
+          item.classList.toggle('bg-primary/10', isSelected);
+          item.classList.toggle('hover:bg-primary/20', isSelected);
+          item.classList.toggle('hover:bg-base-200', !isSelected);
+        });
 
-        // Persist user selection
+        // Persist selection
         try {
           setSelectedLLMProviders(selectedLLMProviders).catch(() => {});
         } catch {}
 
-        // Update AI button icon to show the selected provider
+        // Update main button icon
         updateAIButtonIcon(selectedLLMProviders);
       });
     }

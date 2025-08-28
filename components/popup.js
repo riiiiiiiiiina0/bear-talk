@@ -571,7 +571,7 @@ function updateAIButtonIcon(providerIds) {
     }
   } else {
     iconContainer.classList.add('-space-x-3');
-    providerIds.slice(0, 3).forEach(providerId => {
+    providerIds.forEach(providerId => {
       const providerUrl = LLM_PROVIDER_META[providerId].url || '';
       const icon = document.createElement('img');
       icon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;

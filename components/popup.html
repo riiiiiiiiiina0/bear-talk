@@ -39,9 +39,11 @@
         class="relative flex flex-row items-center gap-1 bg-transparent border-none cursor-pointer p-2 rounded-lg transition-colors duration-200 hover:bg-base-200"
         id="ai-btn">
         <!-- Dynamic provider icon (updated by JavaScript) -->
-        <img id="ai-btn-icon" class="w-6 h-6 rounded"
-          src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E"
-          alt="AI Provider">
+        <div id="ai-btn-icon-container" class="flex items-center">
+          <img id="ai-btn-icon" class="w-6 h-6 rounded"
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E"
+            alt="AI Provider">
+        </div>
         <span id="ai-btn-badge" class="hidden absolute -bottom-1 -right-3 badge badge-xs badge-primary">Search</span>
       </button>
 

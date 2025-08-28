@@ -532,47 +532,54 @@ function updateSelectedTabsDisplay() {
 }
 
 /**
- * Update the AI button icon to show the selected provider
+ * Update the AI button icon to show the selected provider(s)
  * @param {string[]} providerIds - The IDs of the selected providers
  */
 function updateAIButtonIcon(providerIds) {
-  const aiButtonIcon = /** @type {HTMLImageElement|null} */ (
-    document.getElementById('ai-btn-icon')
-  );
+  const iconContainer = document.getElementById('ai-btn-icon-container');
   const aiButtonBadge = /** @type {HTMLSpanElement|null} */ (
     document.getElementById('ai-btn-badge')
   );
-  if (!aiButtonIcon) return;
+  if (!iconContainer) return;
+
+  iconContainer.innerHTML = ''; // Clear previous icons
 
   if (providerIds.length === 0) {
-    // Show a default icon if no provider is selected
-    aiButtonIcon.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E`;
-    aiButtonIcon.alt = 'No AI Provider selected';
-    aiButtonIcon.classList.remove('dark:invert');
-    if (aiButtonBadge) {
-      aiButtonBadge.classList.add('hidden');
-    }
+    const defaultIcon = document.createElement('img');
+    defaultIcon.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E`;
+    defaultIcon.alt = 'No AI Provider selected';
+    defaultIcon.className = 'w-6 h-6 rounded';
+    iconContainer.appendChild(defaultIcon);
+    if (aiButtonBadge) aiButtonBadge.classList.add('hidden');
     return;
   }
 
-  const providerId = providerIds[0];
-  const isChatGPT = providerId === 'chatgpt' || providerId === 'chatgpt_search';
-  let providerUrl = LLM_PROVIDER_META[providerId].url || '';
+  if (providerIds.length === 1) {
+    const providerId = providerIds[0];
+    const isChatGPT = providerId === 'chatgpt' || providerId === 'chatgpt_search';
+    const providerUrl = LLM_PROVIDER_META[providerId].url || '';
 
-  if (providerUrl) {
-    // Use favicon service to get the provider icon
-    aiButtonIcon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
-    aiButtonIcon.alt = `${providerId} icon`;
-    aiButtonIcon.classList.toggle('dark:invert', isChatGPT);
-  }
+    const icon = document.createElement('img');
+    icon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
+    icon.alt = `${providerId} icon`;
+    icon.className = 'w-6 h-6 rounded';
+    icon.classList.toggle('dark:invert', isChatGPT);
+    iconContainer.appendChild(icon);
 
-  // Toggle small badge for ChatGPT with Search
-  if (aiButtonBadge) {
-    if (providerId === 'chatgpt_search') {
-      aiButtonBadge.classList.remove('hidden');
-    } else {
-      aiButtonBadge.classList.add('hidden');
+    if (aiButtonBadge) {
+      aiButtonBadge.classList.toggle('hidden', providerId !== 'chatgpt_search');
     }
+  } else {
+    iconContainer.classList.add('-space-x-3');
+    providerIds.slice(0, 3).forEach(providerId => {
+      const providerUrl = LLM_PROVIDER_META[providerId].url || '';
+      const icon = document.createElement('img');
+      icon.src = `https://www.google.com/s2/favicons?domain=${providerUrl}&sz=32`;
+      icon.alt = `${providerId} icon`;
+      icon.className = 'w-6 h-6 rounded border-2 border-base-100 dark:border-base-300';
+      iconContainer.appendChild(icon);
+    });
+    if (aiButtonBadge) aiButtonBadge.classList.add('hidden');
   }
 }
 

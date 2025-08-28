@@ -330,19 +330,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
         }
 
-        for (const providerId of providersToOpen) {
+        const tabCreationPromises = providersToOpen.map(providerId => {
             const meta = LLM_PROVIDER_META[providerId];
             if (!meta) {
                 console.error('[background] llm provider not supported:', providerId);
-                continue;
+                return Promise.resolve(null);
             }
-
-            const newTab = await chrome.tabs.create({
+            return chrome.tabs.create({
                 url: meta.url,
-                active: true,
+                active: false,
             });
+        });
 
-            if (newTab.id) {
+        const createdTabs = await Promise.all(tabCreationPromises);
+
+        for (let i = 0; i < createdTabs.length; i++) {
+            const newTab = createdTabs[i];
+            const providerId = providersToOpen[i];
+            if (newTab && newTab.id) {
                 const ok = await injectScriptToPasteFilesAsAttachments(newTab.id);
                 if (ok) {
                     llmTabIds.push(newTab.id);
@@ -358,6 +363,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     await disableProviderAndNotify(providerId);
                 }
             }
+        }
+
+        const lastTab = createdTabs[createdTabs.length - 1];
+        if (lastTab) {
+            await chrome.tabs.update(lastTab.id, { active: true });
         }
         if (llmTabIds.length === 0) {
             await clearLoadingBadge();

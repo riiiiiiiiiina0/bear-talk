@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bear Talk",
-  "version": "1.53",
+  "version": "1.54",
   "description": "Use selected tabs as context for AI chats. Works with ChatGPT, Gemini, Claude, Perplexity—no extra subscription or API key.",
   "permissions": [
     "tabs",

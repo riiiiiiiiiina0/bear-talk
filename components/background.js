@@ -301,73 +301,90 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         const providersToOpen = [...selectedLLMProviders];
+        let firstTabToActivateId = null;
+
         // Check if current tab can be reused
         if (currentTab.url && isLLMPage(currentTab.url)) {
-            for (const providerId of selectedLLMProviders) {
-                if (currentTab.url.startsWith(LLM_PROVIDER_META[providerId].url)) {
-                    // Found a match, reuse this tab
-                    const index = providersToOpen.indexOf(providerId);
-                    if (index > -1) {
-                        providersToOpen.splice(index, 1);
-                    }
-                    // Inject into the current tab
-                    const ok = await injectScriptToPasteFilesAsAttachments(currentTab.id);
-                    if (ok) {
-                        llmTabIds.push(currentTab.id);
-                        await waitForTabReady(currentTab.id);
-                        chrome.tabs.sendMessage(currentTab.id, {
-                            type: 'inject-data',
-                            tabs: collectedContents,
-                            promptContent: selectedPromptContent,
-                            files: selectedLocalFiles,
-                            sendButtonSelector: LLM_PROVIDER_META[providerId]?.sendButtonSelector || null,
-                        });
-                    } else {
-                        await disableProviderAndNotify(providerId);
-                    }
-                    break;
+          for (const providerId of selectedLLMProviders) {
+            if (currentTab.url.startsWith(LLM_PROVIDER_META[providerId].url)) {
+              // Found a match, reuse this tab
+              const index = providersToOpen.indexOf(providerId);
+              if (index > -1) {
+                providersToOpen.splice(index, 1);
+              }
+              // Inject into the current tab
+              const ok =
+                await injectScriptToPasteFilesAsAttachments(currentTab.id);
+              if (ok) {
+                llmTabIds.push(currentTab.id);
+                // This is the first tab, so we'll activate it.
+                if (!firstTabToActivateId) {
+                  firstTabToActivateId = currentTab.id;
                 }
+                await waitForTabReady(currentTab.id);
+                chrome.tabs.sendMessage(currentTab.id, {
+                  type: 'inject-data',
+                  tabs: collectedContents,
+                  promptContent: selectedPromptContent,
+                  files: selectedLocalFiles,
+                  sendButtonSelector:
+                    LLM_PROVIDER_META[providerId]?.sendButtonSelector || null,
+                });
+              } else {
+                await disableProviderAndNotify(providerId);
+              }
+              break;
             }
+          }
         }
 
-        const tabCreationPromises = providersToOpen.map(providerId => {
-            const meta = LLM_PROVIDER_META[providerId];
-            if (!meta) {
-                console.error('[background] llm provider not supported:', providerId);
-                return Promise.resolve(null);
-            }
-            return chrome.tabs.create({
-                url: meta.url,
-                active: false,
-            });
+        const tabCreationPromises = providersToOpen.map((providerId) => {
+          const meta = LLM_PROVIDER_META[providerId];
+          if (!meta) {
+            console.error(
+              '[background] llm provider not supported:',
+              providerId,
+            );
+            return Promise.resolve(null);
+          }
+          return chrome.tabs.create({
+            url: meta.url,
+            active: false,
+          });
         });
 
         const createdTabs = await Promise.all(tabCreationPromises);
 
-        for (let i = 0; i < createdTabs.length; i++) {
-            const newTab = createdTabs[i];
-            const providerId = providersToOpen[i];
-            if (newTab && newTab.id) {
-                const ok = await injectScriptToPasteFilesAsAttachments(newTab.id);
-                if (ok) {
-                    llmTabIds.push(newTab.id);
-                    await waitForTabReady(newTab.id);
-                    chrome.tabs.sendMessage(newTab.id, {
-                        type: 'inject-data',
-                        tabs: collectedContents,
-                        promptContent: selectedPromptContent,
-                        files: selectedLocalFiles,
-                        sendButtonSelector: LLM_PROVIDER_META[providerId]?.sendButtonSelector || null,
-                    });
-                } else {
-                    await disableProviderAndNotify(providerId);
-                }
-            }
+        // If no tab was reused, the first new tab is the one to activate.
+        if (!firstTabToActivateId && createdTabs.length > 0 && createdTabs[0]) {
+          firstTabToActivateId = createdTabs[0].id;
         }
 
-        const lastTab = createdTabs[createdTabs.length - 1];
-        if (lastTab) {
-            await chrome.tabs.update(lastTab.id, { active: true });
+        for (let i = 0; i < createdTabs.length; i++) {
+          const newTab = createdTabs[i];
+          const providerId = providersToOpen[i];
+          if (newTab && newTab.id) {
+            const ok = await injectScriptToPasteFilesAsAttachments(newTab.id);
+            if (ok) {
+              llmTabIds.push(newTab.id);
+              await waitForTabReady(newTab.id);
+              chrome.tabs.sendMessage(newTab.id, {
+                type: 'inject-data',
+                tabs: collectedContents,
+                promptContent: selectedPromptContent,
+                files: selectedLocalFiles,
+                sendButtonSelector:
+                  LLM_PROVIDER_META[providerId]?.sendButtonSelector || null,
+              });
+            } else {
+              await disableProviderAndNotify(providerId);
+            }
+          }
+        }
+
+        // Activate the first tab (either reused or newly created).
+        if (firstTabToActivateId) {
+          await chrome.tabs.update(firstTabToActivateId, { active: true });
         }
         if (llmTabIds.length === 0) {
             await clearLoadingBadge();

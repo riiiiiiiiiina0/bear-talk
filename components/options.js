@@ -487,7 +487,7 @@ function showStatus(message, isError = false) {
         <p class="text-sm font-medium">${message}</p>
       </div>
       <div class="ml-4 flex-shrink-0 flex">
-        <button class="inline-flex text-gray-400 hover:text-gray-600 focus:outline-none" onclick="this.closest('div[class*=fixed]').remove()">
+        <button class="toast-close-btn inline-flex text-gray-400 hover:text-gray-600 focus:outline-none">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -496,9 +496,25 @@ function showStatus(message, isError = false) {
     </div>
   `;
 
+  // Function to remove the toast
+  const removeToast = () => {
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.remove();
+      }
+    }, 300);
+  };
+
   // Add slide-in animation
   toast.style.transform = 'translateX(100%)';
   document.body.appendChild(toast);
+
+  // Add event listener to the close button
+  const closeButton = toast.querySelector('.toast-close-btn');
+  if (closeButton) {
+    closeButton.addEventListener('click', () => removeToast());
+  }
 
   // Trigger animation
   setTimeout(() => {
@@ -506,14 +522,7 @@ function showStatus(message, isError = false) {
   }, 10);
 
   // Auto-remove after 4 seconds
-  setTimeout(() => {
-    toast.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.remove();
-      }
-    }, 300);
-  }, 4000);
+  setTimeout(removeToast, 4000);
 }
 
 /**

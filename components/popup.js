@@ -1087,34 +1087,24 @@ async function sendPromptToLLM() {
   // Ask the background service-worker to collect the context and process it
   try {
     const llmProviders = selectedLLMProviders.length > 0 ? selectedLLMProviders : (await getSelectedLLMProviders());
-    await /** @type {Promise<void>} */ (
-      new Promise((resolve) => {
-        try {
-          chrome.runtime.sendMessage(
-            {
-              type: 'collect-page-content',
-              tabIds: selectedTabIds,
-              llmProviders,
-              promptContent: promptText,
-              localFiles: serializedFiles,
-            },
-            () => {
-              // Ensure any errors don't block closing
-              // Accessing lastError consumes it; ignore the value
-              // @ts-ignore
-              void chrome.runtime.lastError;
-              resolve();
-            },
-          );
-        } catch {
-          resolve();
-        }
-      })
+    // Fire-and-forget the message. The popup will close immediately.
+    chrome.runtime.sendMessage(
+      {
+        type: 'collect-page-content',
+        tabIds: selectedTabIds,
+        llmProviders,
+        promptContent: promptText,
+        localFiles: serializedFiles,
+      },
+      () => {
+        // Callback to consume chrome.runtime.lastError if it occurs
+        void chrome.runtime.lastError;
+      },
     );
   } finally {
     // Close the popup in a microtask to avoid races where the page is torn down
     // before the message is dispatched.
-    setTimeout(() => window.close(), 0);
+    setTimeout(() => window.close(), 100);
   }
 }
 

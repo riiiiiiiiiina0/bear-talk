@@ -164,6 +164,18 @@ export async function isLLMProviderDisabled(provider) {
 }
 
 /**
+ * Reset the list of disabled LLM providers.
+ * @returns {Promise<void>}
+ */
+export function resetDisabledLLMProviders() {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [DISABLED_LLM_PROVIDERS_KEY]: [] }, () =>
+      resolve(),
+    );
+  });
+}
+
+/**
  * Get the LLM provider from the given URL.
  * @param {string} url
  * @returns {string|null}

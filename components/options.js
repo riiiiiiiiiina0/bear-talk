@@ -1,3 +1,5 @@
+import { resetDisabledLLMProviders } from './utils/llmProviders.js';
+
 // Storage key for saved prompts
 const PROMPTS_STORAGE_KEY = 'savedPrompts';
 
@@ -771,4 +773,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       openEditModal();
     }
   });
+
+  // Reset LLM providers button
+  const resetLLMProvidersBtn = document.getElementById(
+    'reset-llm-providers-btn',
+  );
+  if (resetLLMProvidersBtn) {
+    resetLLMProvidersBtn.addEventListener('click', async () => {
+      try {
+        await resetDisabledLLMProviders();
+        showStatus('All LLM providers have been re-enabled.');
+      } catch (error) {
+        console.error('Error resetting LLM providers:', error);
+        showStatus('Error re-enabling LLM providers.', true);
+      }
+    });
+  }
 });

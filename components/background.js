@@ -216,7 +216,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Open prompt editor request from content script
   if (message.type === 'open-prompts-editor' && message.id) {
     const url = chrome.runtime.getURL(
-      `components/options_prompts.html?edit=${message.id}`,
+      `components/options.html?edit=${message.id}`,
     );
     chrome.tabs.create({ url });
     return;

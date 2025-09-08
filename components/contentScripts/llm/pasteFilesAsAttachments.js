@@ -3,10 +3,29 @@
 
 (async () => {
   /**
+   * Get the LLM provider from the given URL.
+   * @param {string} url
+   * @returns {string|null}
+   */
+  function getLLMProviderFromURL(url) {
+    if (url.startsWith('https://www.perplexity.ai')) {
+      return 'perplexity';
+    }
+    return null;
+  }
+
+  /**
    * Auto trigger send message once all the context files are pasted and prompt content is not empty.
    */
   async function autoTriggerSend(selector) {
     if (!selector) return;
+
+    const provider = getLLMProviderFromURL(window.location.href);
+
+    if (provider === 'perplexity') {
+      // Wait for file loading to complete
+      await waitForElementToDisappear('[data-testid="file-loading-icon"]');
+    }
 
     const sendButton = await waitForElement(selector, 10_000);
     if (sendButton) {
@@ -36,6 +55,29 @@
         }
       }
       setTimeout(tryFind, 1000);
+    });
+  }
+
+  /**
+   * Waits for a DOM element matching the selector to disappear.
+   * @param {string} selector
+   * @param {number} timeoutMs
+   * @returns {Promise<void>}
+   */
+  function waitForElementToDisappear(selector, timeoutMs = 10000) {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      function tryCheck() {
+        const el = document.querySelector(selector);
+        if (!el) {
+          resolve();
+        } else if (Date.now() - start >= timeoutMs) {
+          resolve(); // Resolve anyway after timeout
+        } else {
+          setTimeout(tryCheck, 500);
+        }
+      }
+      tryCheck();
     });
   }
 

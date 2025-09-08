@@ -1095,7 +1095,7 @@ async function sendPromptToLLM() {
           return `- ${tab.url}${isLast ? '' : ','}`;
         })
         .join('\n');
-      promptText += `\n\nContext:\n${urlList}`;
+      promptText += `\n\n| Context:\n${urlList}`;
     }
   }
 

@@ -1055,7 +1055,7 @@ async function sendPromptToLLM() {
   const textarea = /** @type {HTMLTextAreaElement} */ (
     document.getElementById('prompt-textarea')
   );
-  const promptText = textarea ? textarea.value.trim() : '';
+  let promptText = textarea ? textarea.value.trim() : '';
   // Serialize selected local files to data URLs
   const serializedFiles = await Promise.all(
     selectedFiles.map(
@@ -1082,6 +1082,21 @@ async function sendPromptToLLM() {
     isSending = false;
     window.close();
     return;
+  }
+
+  if (promptText && selectedTabIds.length > 0) {
+    const selectedTabs = allTabs.filter((tab) =>
+      selectedTabIds.includes(tab.id),
+    );
+    if (selectedTabs.length > 0) {
+      const urlList = selectedTabs
+        .map((tab, index) => {
+          const isLast = index === selectedTabs.length - 1;
+          return `- ${tab.url}${isLast ? '' : ','}`;
+        })
+        .join('\n');
+      promptText += `\n\nContext:\n${urlList}`;
+    }
   }
 
   // Ask the background service-worker to collect the context and process it

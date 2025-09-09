@@ -181,6 +181,9 @@ export function resetDisabledLLMProviders() {
  * @returns {string|null}
  */
 export function getLLMProviderFromURL(url) {
+  if (url.startsWith('https://www.perplexity.ai/discover/')) {
+    return null;
+  }
   for (const [provider, meta] of Object.entries(LLM_PROVIDER_META)) {
     if (url.startsWith(meta.url)) {
       return provider;

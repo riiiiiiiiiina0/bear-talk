@@ -8,6 +8,9 @@
    * @returns {string|null}
    */
   function getLLMProviderFromURL(url) {
+    if (url.startsWith('https://www.perplexity.ai/discover/')) {
+      return null;
+    }
     if (url.startsWith('https://www.perplexity.ai')) {
       return 'perplexity';
     }

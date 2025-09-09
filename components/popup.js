@@ -18,6 +18,12 @@ const PROMPTS_STORAGE_KEY = 'savedPrompts';
  */
 function isLLMPage(url) {
   if (!url) return false;
+  if (
+    url.startsWith('https://www.perplexity.ai/discover/') ||
+    url.startsWith('https://www.perplexity.ai/page/')
+  ) {
+    return false;
+  }
   for (const meta of Object.values(LLM_PROVIDER_META)) {
     if (url.startsWith(meta.url)) {
       return true;
@@ -33,6 +39,12 @@ function isLLMPage(url) {
  */
 function getLLMProviderFromURL(url) {
   if (!url) return null;
+  if (
+    url.startsWith('https://www.perplexity.ai/discover/') ||
+    url.startsWith('https://www.perplexity.ai/page/')
+  ) {
+    return null;
+  }
   for (const [providerId, meta] of Object.entries(LLM_PROVIDER_META)) {
     if (url.startsWith(meta.url)) {
       return providerId;
